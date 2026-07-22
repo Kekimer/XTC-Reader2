@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<title>XTC Reader</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#111318" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<style>
+  :root {
+    --bg: #111318;
+    --surface: #1b1e26;
+    --surface-2: #262a35;
+    --line: #333846;
+    --text: #e6e8ee;
+    --text-dim: #9aa0b0;
+    --accent: #6ea8fe;
+    --accent-ink: #0b1220;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    overscroll-behavior: none;
+  }
+
+  #app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+
+  /* ---------- Empty / landing state ---------- */
+  #landing {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    padding: 32px;
+    text-align: center;
+  }
+  #landing .logo {
+    width: 76px; height: 76px;
+    border-radius: 20px;
+    background: linear-gradient(150deg, #6ea8fe, #3f6fd0);
+    display: grid; place-items: center;
+    box-shadow: 0 10px 30px rgba(110,168,254,0.25);
+  }
+  #landing .logo svg { width: 40px; height: 40px; }
+  #landing h1 { margin: 0; font-size: 1.5rem; font-weight: 650; letter-spacing: -0.01em; }
+  #landing p { margin: 0; color: var(--text-dim); font-size: 0.95rem; max-width: 300px; line-height: 1.55; }
+
+  .btn-primary {
+    appearance: none; border: 0;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: 1.02rem; font-weight: 650;
+    padding: 15px 30px;
+    border-radius: 14px;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(110,168,254,0.28);
+  }
+  .btn-primary:active { transform: translateY(1px); }
+
+  .hint { color: var(--text-dim); font-size: 0.8rem; }
+
+  /* ---------- Reader ---------- */
+  #reader { flex: 1; position: relative; display: none; }
+  #reader.on { display: block; }
+
+  #stage {
+    position: absolute; inset: 0;
+    background: var(--bg);
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    /* centering wrapper */
+    display: grid;
+  }
+  /* inner box grows with the canvas so scrolling works in 1:1 / 2:1 */
+  #stageInner {
+    min-width: 100%;
+    min-height: 100%;
+    display: grid;
+    place-items: center;
+    padding: calc(var(--safe-top) + 8px) 8px calc(var(--safe-bottom) + 8px);
+    box-sizing: border-box;
+  }
+  canvas {
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 6px 26px rgba(0,0,0,0.45);
+    display: block;
+  }
+  /* JS sets canvas.style.width/height and image-rendering for every mode.
+     These classes only govern max-size clamping. */
+  canvas.fit { max-width: 100%; max-height: 100%; }
+  canvas.scaled { max-width: none; max-height: none; }
+  canvas.invert { filter: invert(1); }
+
+  /* Tap zones for page turning */
+  #zones { position: absolute; inset: 0; display: flex; z-index: 5; }
+  #zones .z { flex: 1; }
+  #zones .z.mid { flex: 1.1; }
+  /* when zoomed in, let touches reach the scrollable stage instead */
+  #zones.panning { pointer-events: none; }
+
+  /* ---------- Top bar ---------- */
+  #topbar {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 20;
+    padding: calc(var(--safe-top) + 10px) 12px 12px;
+    background: linear-gradient(to bottom, rgba(17,19,24,0.96), rgba(17,19,24,0));
+    display: flex; align-items: center; gap: 10px;
+    transform: translateY(-100%);
+    transition: transform 0.25s ease;
+  }
+  #topbar.show { transform: translateY(0); }
+  #topbar .title {
+    flex: 1; min-width: 0;
+    font-size: 0.95rem; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #topbar .sub { font-size: 0.72rem; color: var(--text-dim); font-weight: 400; }
+  .icon-btn {
+    appearance: none; border: 0; background: var(--surface-2);
+    color: var(--text); width: 40px; height: 40px;
+    border-radius: 11px; display: grid; place-items: center;
+    cursor: pointer; flex: 0 0 auto;
+  }
+  .icon-btn:active { background: var(--line); }
+  .icon-btn.active { background: var(--accent); color: var(--accent-ink); }
+  .icon-btn svg { width: 20px; height: 20px; }
+
+  /* ---------- Bottom bar ---------- */
+  #bottombar {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 20;
+    padding: 14px 16px calc(var(--safe-bottom) + 14px);
+    background: linear-gradient(to top, rgba(17,19,24,0.96), rgba(17,19,24,0));
+    transform: translateY(100%);
+    transition: transform 0.25s ease;
+  }
+  #bottombar.show { transform: translateY(0); }
+  #pageReadout {
+    text-align: center; font-size: 0.8rem; color: var(--text-dim);
+    margin-bottom: 10px; font-variant-numeric: tabular-nums;
+  }
+  #slider {
+    width: 100%; height: 30px; background: transparent; cursor: pointer;
+    -webkit-appearance: none; appearance: none;
+  }
+  #slider::-webkit-slider-runnable-track { height: 5px; border-radius: 3px; background: var(--line); }
+  #slider::-moz-range-track { height: 5px; border-radius: 3px; background: var(--line); }
+  #slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--accent); margin-top: -8.5px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  }
+  #slider::-moz-range-thumb {
+    width: 22px; height: 22px; border: 0; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  }
+
+  /* ---------- Sheet (chapters) ---------- */
+  #scrim {
+    position: absolute; inset: 0; z-index: 40;
+    background: rgba(0,0,0,0.5);
+    opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
+  }
+  #scrim.show { opacity: 1; pointer-events: auto; }
+  #sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 41;
+    max-height: 70%;
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    transform: translateY(100%);
+    transition: transform 0.28s cubic-bezier(.2,.8,.2,1);
+    display: flex; flex-direction: column;
+    padding-bottom: var(--safe-bottom);
+  }
+  #sheet.show { transform: translateY(0); }
+  #sheet .grip { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 10px auto 6px; flex: 0 0 auto; }
+  #sheet h2 { margin: 4px 20px 10px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); font-weight: 600; }
+  #chapters { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 8px 8px; }
+  .chapter {
+    padding: 14px 16px; border-radius: 12px;
+    display: flex; align-items: baseline; gap: 12px;
+    cursor: pointer; font-size: 0.98rem;
+  }
+  .chapter:active { background: var(--surface-2); }
+  .chapter.active { background: var(--surface-2); color: var(--accent); font-weight: 600; }
+  .chapter .pg { margin-left: auto; font-size: 0.78rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .chapter.active .pg { color: var(--accent); }
+
+  /* ---------- Meta popover reuse of sheet ---------- */
+  #metaBody { padding: 4px 20px 20px; color: var(--text-dim); font-size: 0.92rem; line-height: 1.6; }
+  #metaBody strong { color: var(--text); }
+  #metaBody .kv { display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+  #metaBody .kv:last-child { border-bottom: 0; }
+  #metaBody .kv .k { color: var(--text-dim); }
+  #metaBody .kv .v { color: var(--text); text-align: right; }
+
+  /* Toast */
+  #toast {
+    position: absolute; left: 50%; bottom: calc(var(--safe-bottom) + 90px);
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface-2); color: var(--text);
+    padding: 10px 18px; border-radius: 12px; font-size: 0.88rem;
+    z-index: 60; opacity: 0; pointer-events: none; transition: all 0.2s ease;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  input[type=file] { display: none; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Landing -->
+  <div id="landing">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#0b1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 4h11a2 2 0 0 1 2 2v14a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2z"/>
+        <path d="M17 6h3v13a2 2 0 0 1-2 2h-1"/>
+        <path d="M8 8h5M8 11h5"/>
+      </svg>
+    </div>
+    <div>
+      <h1>XTC Reader</h1>
+      <p>Открывайте и читайте книги Xteink — форматы XTC, XTCH, XTZ4, XTG и XTH.</p>
+    </div>
+    <button class="btn-primary" id="openBtn">Открыть файл</button>
+    <span class="hint">Установите на главный экран для работы офлайн</span>
+  </div>
+
+  <!-- Reader -->
+  <div id="reader">
+    <div id="stage"><div id="stageInner"><canvas id="canvas"></canvas></div></div>
+
+    <div id="zones">
+      <div class="z" data-act="prev"></div>
+      <div class="z mid" data-act="menu"></div>
+      <div class="z" data-act="next"></div>
+    </div>
+
+    <div id="topbar">
+      <button class="icon-btn" id="homeBtn" title="Открыть другой файл">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div class="title"><span id="titleText">Документ</span><br><span class="sub" id="subText"></span></div>
+      <button class="icon-btn" id="smoothBtn" title="Сглаживание">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c3 0 3-10 6-10s3 10 6 10 3-6 6-6"/></svg>
+      </button>
+      <button class="icon-btn" id="zoomBtn" title="Масштаб">
+        <span id="zoomLabel" style="font-size:0.72rem;font-weight:700;letter-spacing:-0.02em">FIT</span>
+      </button>
+      <button class="icon-btn" id="invertBtn" title="Инвертировать цвета">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/></svg>
+      </button>
+      <button class="icon-btn" id="infoBtn" title="Сведения">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+      </button>
+      <button class="icon-btn" id="chapBtn" title="Оглавление">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+      </button>
+    </div>
+
+    <div id="bottombar">
+      <div id="pageReadout">—</div>
+      <input type="range" id="slider" min="0" max="0" value="0" />
+    </div>
+
+    <!-- Scrim + sheets -->
+    <div id="scrim"></div>
+
+    <div id="sheet">
+      <div class="grip"></div>
+      <div id="sheetChapters">
+        <h2>Оглавление</h2>
+        <div id="chapters"></div>
+      </div>
+      <div id="sheetMeta" style="display:none">
+        <h2>Сведения о книге</h2>
+        <div id="metaBody"></div>
+      </div>
+    </div>
+
+    <div id="toast"></div>
+  </div>
+
+  <input type="file" id="fileInput" accept=".xtc,.xtg,.xth,.xtch,.xtcz,.xtz4" />
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ============ Format parsing (adapted from the reference viewer) ============
+  const LE = true;
+  const TEXT_DEC = new TextDecoder('utf-8');
+  const MARK = { XTC: 0x00435458, XTCH: 0x48435458, XTG: 0x00475458, XTH: 0x00485458, XTZ4: 0x345a5458 };
+
+  // ============ LZ4 block decoder (dependency-free) ============
+  // Decodes one standard LZ4 block. `dst` must be large enough for the output.
+  function lz4DecodeBlock(src, sStart, sEnd, dst, dStart) {
+    let s = sStart, d = dStart;
+    while (s < sEnd) {
+      const token = src[s++];
+      // literals
+      let litLen = token >> 4;
+      if (litLen === 15) {
+        let b;
+        do { b = src[s++]; litLen += b; } while (b === 255);
+      }
+      for (let i = 0; i < litLen; i++) dst[d++] = src[s++];
+      if (s >= sEnd) break;
+      // match
+      const offset = src[s] | (src[s + 1] << 8); s += 2;
+      let matchLen = token & 0xF;
+      if (matchLen === 15) {
+        let b;
+        do { b = src[s++]; matchLen += b; } while (b === 255);
+      }
+      matchLen += 4;
+      let m = d - offset;
+      for (let i = 0; i < matchLen; i++) dst[d++] = dst[m++];
+    }
+    return d;
+  }
+
+  // Unwraps an XTZ4 container into a plain XTC/XTCH ArrayBuffer.
+  // Layout: "XTZ4" | uint32 decompressedSize | uint32 blockSize | repeated( uint32 compSize | compData )
+  function decodeXTZ4(arrayBuffer) {
+    const dv = new DataView(arrayBuffer);
+    const src = new Uint8Array(arrayBuffer);
+    const decompSize = dv.getUint32(4, LE);
+    const blockSize = dv.getUint32(8, LE);
+    const out = new Uint8Array(decompSize);
+    let pos = 12, outPos = 0;
+    // scratch buffer sized generously — LZ4 block decoder may over-write past the
+    // true block length during copies, so we give it room and trim by tracking outPos.
+    while (pos + 4 <= src.length && outPos < decompSize) {
+      const csize = dv.getUint32(pos, LE); pos += 4;
+      const want = Math.min(blockSize, decompSize - outPos);
+      const produced = lz4DecodeBlock(src, pos, pos + csize, out, outPos) - outPos;
+      // (produced should equal `want`; we trust the format and advance by want)
+      outPos += want;
+      pos += csize;
+    }
+    return out.buffer;
+  }
+
+  class XTGH_Image {
+    constructor(arrayBuffer) {
+      this.buf = arrayBuffer;
+      this.dv = new DataView(arrayBuffer);
+      this.header = null;
+      this.parseHeader();
+    }
+    parseHeader() {
+      const dv = this.dv;
+      if (dv.byteLength < 22) throw new Error('Файл слишком мал для XTG/XTH');
+      this.header = {
+        mark: dv.getUint32(0, LE),
+        width: dv.getUint16(4, LE),
+        height: dv.getUint16(6, LE),
+        colorMode: dv.getUint8(8),
+        compression: dv.getUint8(9),
+        dataSize: dv.getUint32(10, LE),
+      };
+      if (this.header.mark !== MARK.XTG && this.header.mark !== MARK.XTH) throw new Error('Не изображение XTG/XTH');
+      if (this.header.colorMode !== 0) throw new Error('Неподдерживаемый цветовой режим');
+      if (this.header.compression !== 0) throw new Error('Сжатие не поддерживается');
+    }
+    getImageData() {
+      const w = this.header.width, h = this.header.height;
+      const imgDataOffset = 22;
+      if (imgDataOffset + this.header.dataSize > this.dv.byteLength) throw new Error('Данные изображения за пределами файла');
+      const raw = new Uint8Array(this.buf, imgDataOffset, this.header.dataSize);
+      const rgba = new Uint8ClampedArray(w * h * 4);
+
+      if (this.header.mark === MARK.XTG) {
+        const rowBytes = Math.floor((w + 7) / 8);
+        for (let y = 0; y < h; y++) {
+          const rowStart = y * rowBytes;
+          for (let x = 0; x < w; x++) {
+            const byte = raw[rowStart + (x >> 3)];
+            const bit = (byte >> (7 - (x & 7))) & 1;
+            const v = bit ? 255 : 0;
+            const idx = (y * w + x) * 4;
+            rgba[idx] = rgba[idx + 1] = rgba[idx + 2] = v;
+            rgba[idx + 3] = 255;
+          }
+        }
+      } else { // XTH — 2-bit, two bit planes, column-major reversed
+        const planeSize = Math.ceil((w * h) / 8);
+        const plane1 = raw.subarray(0, planeSize);
+        const plane2 = raw.subarray(planeSize, planeSize * 2);
+        const colBytes = Math.ceil(h / 8);
+        for (let x = 0; x < w; x++) {
+          const col = w - 1 - x;
+          for (let y = 0; y < h; y++) {
+            const byteIndex = (y >> 3) + col * colBytes;
+            const bitIndex = y & 7;
+            const bit1 = (plane1[byteIndex] >> (7 - bitIndex)) & 1;
+            const bit2 = (plane2[byteIndex] >> (7 - bitIndex)) & 1;
+            const pixelValue = (bit1 << 1) | bit2;
+            let v;
+            switch (pixelValue) {
+              case 0: v = 255; break;
+              case 1: v = 85; break;
+              case 2: v = 170; break;
+              case 3: v = 0; break;
+            }
+            const idx = (y * w + x) * 4;
+            rgba[idx] = rgba[idx + 1] = rgba[idx + 2] = v;
+            rgba[idx + 3] = 255;
+          }
+        }
+      }
+      return { width: w, height: h, imageData: rgba };
+    }
+  }
+
+  class XTC_File {
+    constructor(arrayBuffer) {
+      this.buf = arrayBuffer;
+      this.dv = new DataView(arrayBuffer);
+      this.header = null;
+      this.metadata = null;
+      this.chapters = [];
+      this.indexTable = [];
+      this.parseHeader();
+      this.parseMetadata();
+      this.parseChapters();
+      this.parseIndexTable();
+    }
+    parseHeader() {
+      const dv = this.dv;
+      if (dv.byteLength < 56) throw new Error('Файл слишком мал для XTC/XTCH');
+      this.header = {
+        mark: dv.getUint32(0, LE),
+        version: dv.getUint16(4, LE),
+        pageCount: dv.getUint16(6, LE),
+        readDirection: dv.getUint8(8),
+        hasMetadata: !!dv.getUint8(9),
+        hasThumbnails: !!dv.getUint8(10),
+        hasChapters: !!dv.getUint8(11),
+        currentPage: dv.getUint32(12, LE),
+        metadataOffset: Number(dv.getBigUint64(16, LE)),
+        indexOffset: Number(dv.getBigUint64(24, LE)),
+        dataOffset: Number(dv.getBigUint64(32, LE)),
+        thumbOffset: Number(dv.getBigUint64(40, LE)),
+        chapterOffset: Number(dv.getBigUint64(48, LE)),
+      };
+      if (this.header.mark !== MARK.XTC && this.header.mark !== MARK.XTCH) throw new Error('Не файл XTC/XTCH');
+      if (this.header.pageCount <= 0) throw new Error('Некорректное число страниц');
+    }
+    parseMetadata() {
+      if (!this.header.hasMetadata) return;
+      const dv = this.dv;
+      const offset = this.header.metadataOffset;
+      if (!offset || offset + 256 > dv.byteLength) throw new Error('Некорректное смещение метаданных');
+      const bytes = new Uint8Array(this.buf, offset, 256);
+      this.metadata = {
+        title: TEXT_DEC.decode(bytes.subarray(0, 128)).split('\0')[0] || '',
+        author: TEXT_DEC.decode(bytes.subarray(128, 192)).split('\0')[0] || '',
+        publisher: TEXT_DEC.decode(bytes.subarray(192, 224)).split('\0')[0] || '',
+        language: TEXT_DEC.decode(bytes.subarray(224, 240)).split('\0')[0] || '',
+        createTime: dv.getUint32(offset + 240, LE),
+        coverPage: dv.getUint16(offset + 244, LE),
+        chapterCount: dv.getUint16(offset + 246, LE),
+      };
+    }
+    parseChapters() {
+      if (!this.header.hasChapters) return;
+      const dv = this.dv;
+      const count = this.metadata?.chapterCount || 0;
+      let offset = this.header.chapterOffset;
+      if (offset > dv.byteLength) return;
+      for (let i = 0; i < count; i++) {
+        if (offset + 96 > dv.byteLength) throw new Error('Смещение главы за пределами файла');
+        const nameBytes = new Uint8Array(this.buf, offset, 80);
+        this.chapters.push({
+          chapterName: TEXT_DEC.decode(nameBytes).split('\0')[0],
+          startPage: dv.getUint16(offset + 0x50, LE),
+          endPage: dv.getUint16(offset + 0x52, LE),
+        });
+        offset += 96;
+      }
+    }
+    parseIndexTable() {
+      const dv = this.dv;
+      const count = this.header.pageCount;
+      let offset = this.header.indexOffset;
+      for (let i = 0; i < count; i++) {
+        if (offset + 16 > dv.byteLength) throw new Error('Таблица страниц за пределами файла');
+        this.indexTable.push({
+          offset: Number(dv.getBigUint64(offset, LE)),
+          size: dv.getUint32(offset + 8, LE),
+          width: dv.getUint16(offset + 12, LE),
+          height: dv.getUint16(offset + 14, LE),
+        });
+        offset += 16;
+      }
+    }
+    getPageImage(pageIndex) {
+      if (pageIndex < 0 || pageIndex >= this.indexTable.length) return null;
+      const entry = this.indexTable[pageIndex];
+      const slice = this.buf.slice(entry.offset, entry.offset + entry.size);
+      return new XTGH_Image(slice);
+    }
+  }
+
+  // ============ App state & DOM ============
+  const $ = id => document.getElementById(id);
+  const landing = $('landing'), reader = $('reader');
+  const fileInput = $('fileInput');
+  const canvas = $('canvas'), ctx = canvas.getContext('2d');
+  const stage = $('stage');
+  const topbar = $('topbar'), bottombar = $('bottombar');
+  const scrim = $('scrim'), sheet = $('sheet');
+  const slider = $('slider'), pageReadout = $('pageReadout');
+  const titleText = $('titleText'), subText = $('subText');
+  const chaptersBox = $('chapters');
+  const sheetChapters = $('sheetChapters'), sheetMeta = $('sheetMeta'), metaBody = $('metaBody');
+  const toast = $('toast');
+  const zoomBtn = $('zoomBtn'), zoomLabel = $('zoomLabel'), invertBtn = $('invertBtn');
+  const smoothBtn = $('smoothBtn');
+
+  let xtc = null;          // book
+  let singleImage = null;  // standalone image
+  let page = 0;
+  let chromeVisible = false;
+  let toastTimer = null;
+  let zoomMode = 'fit';    // 'fit' | '1x' | '2x'
+  let inverted = false;    // OLED-friendly color inversion
+  let smoothing = true;    // high-quality downscale (soft edges)
+  let nativeW = 0, nativeH = 0;
+
+  // ============ Open file ============
+  $('openBtn').addEventListener('click', () => fileInput.click());
+  $('homeBtn').addEventListener('click', goHome);
+  zoomBtn.addEventListener('click', cycleZoom);
+  invertBtn.addEventListener('click', toggleInvert);
+  smoothBtn.addEventListener('click', toggleSmoothing);
+
+  fileInput.addEventListener('change', async e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    try {
+      let buf = await f.arrayBuffer();
+      let mark = new DataView(buf).getUint32(0, LE);
+      // XTZ4 = LZ4-compressed XTC/XTCH container — decompress, then parse as usual
+      if (mark === MARK.XTZ4) {
+        buf = decodeXTZ4(buf);
+        mark = new DataView(buf).getUint32(0, LE);
+      }
+      if (mark === MARK.XTC || mark === MARK.XTCH) {
+        xtc = new XTC_File(buf);
+        singleImage = null;
+        page = 0;
+        setupBook(f.name);
+      } else if (mark === MARK.XTG || mark === MARK.XTH) {
+        singleImage = new XTGH_Image(buf);
+        xtc = null;
+        setupImage(f.name);
+      } else {
+        throw new Error('Неизвестный формат файла');
+      }
+    } catch (err) {
+      showToast('Ошибка: ' + err.message);
+      console.error(err);
+    }
+    fileInput.value = '';
+  });
+
+  function goHome() {
+    reader.classList.remove('on');
+    landing.style.display = 'flex';
+    closeSheet();
+    hideChrome();
+    xtc = null; singleImage = null;
+  }
+
+  function setupBook(fallbackName) {
+    landing.style.display = 'none';
+    reader.classList.add('on');
+    zoomMode = 'fit';
+    smoothBtn.classList.toggle('active', smoothing);
+    invertBtn.classList.toggle('active', inverted);
+    canvas.classList.toggle('invert', inverted);
+    const m = xtc.metadata;
+    titleText.textContent = (m && m.title) ? m.title : fallbackName;
+    subText.textContent = (m && m.author) ? m.author : '';
+    slider.max = String(xtc.indexTable.length - 1);
+    slider.value = '0';
+    buildChapters();
+    buildMeta(fallbackName);
+    renderPage(0);
+    // briefly reveal controls so the user sees them, then fade
+    showChrome();
+    setTimeout(hideChrome, 1800);
+  }
+
+  function setupImage(fallbackName) {
+    landing.style.display = 'none';
+    reader.classList.add('on');
+    zoomMode = 'fit';
+    smoothBtn.classList.toggle('active', smoothing);
+    invertBtn.classList.toggle('active', inverted);
+    canvas.classList.toggle('invert', inverted);
+    titleText.textContent = fallbackName;
+    subText.textContent = 'Изображение';
+    bottombar.classList.remove('show');
+    renderCurrentImage(singleImage);
+    showChrome();
+    setTimeout(hideChrome, 1800);
+  }
+
+  // ============ Rendering ============
+  function renderPage(idx) {
+    if (!xtc) return;
+    idx = Math.max(0, Math.min(idx, xtc.indexTable.length - 1));
+    page = idx;
+    const img = xtc.getPageImage(idx);
+    renderCurrentImage(img);
+    slider.value = String(idx);
+    pageReadout.textContent = `Страница ${idx + 1} из ${xtc.indexTable.length}`;
+    markActiveChapter();
+  }
+
+  // Offscreen source canvas holds the page at native resolution.
+  const srcCanvas = document.createElement('canvas');
+  const srcCtx = srcCanvas.getContext('2d');
+
+  function renderCurrentImage(image) {
+    if (!image) return;
+    const { width, height, imageData } = image.getImageData();
+    // keep the decoded page at native resolution in the offscreen source
+    srcCanvas.width = width;
+    srcCanvas.height = height;
+    srcCtx.putImageData(new ImageData(imageData, width, height), 0, 0);
+    nativeW = width;
+    nativeH = height;
+    applyZoom();
+  }
+
+  // High-quality downscale by repeated halving (approximates area-averaging).
+  // Produces soft grey edges from 1-bit pages instead of dropped pixels.
+  function drawHQ(destCtx, src, dw, dh) {
+    let cw = src.width, ch = src.height;
+    let cur = src;
+    // halve until the next halving would overshoot the target
+    while (cw > dw * 2 || ch > dh * 2) {
+      const nw = Math.max(dw, Math.floor(cw / 2));
+      const nh = Math.max(dh, Math.floor(ch / 2));
+      const tmp = document.createElement('canvas');
+      tmp.width = nw; tmp.height = nh;
+      const tctx = tmp.getContext('2d');
+      tctx.imageSmoothingEnabled = true;
+      tctx.imageSmoothingQuality = 'high';
+      tctx.drawImage(cur, 0, 0, cw, ch, 0, 0, nw, nh);
+      cur = tmp; cw = nw; ch = nh;
+    }
+    destCtx.imageSmoothingEnabled = true;
+    destCtx.imageSmoothingQuality = 'high';
+    destCtx.drawImage(cur, 0, 0, cw, ch, 0, 0, dw, dh);
+  }
+
+  // ============ Zoom modes: fit / 1:1 / 2:1 ============
+  const ZOOM_MODES = ['fit', '1x', '2x'];
+  const ZOOM_LABEL = { fit: 'FIT', '1x': '1:1', '2x': '2:1' };
+
+  // Compute the CSS pixel size the page should occupy on screen for the mode.
+  function targetDisplaySize() {
+    if (zoomMode === '1x') return { w: nativeW, h: nativeH };
+    if (zoomMode === '2x') return { w: nativeW * 2, h: nativeH * 2 };
+    // fit: largest size that fits the stage while preserving aspect ratio
+    const availW = stage.clientWidth - 16;   // account for stageInner padding
+    const availH = stage.clientHeight - 16;
+    const scale = Math.min(availW / nativeW, availH / nativeH);
+    return { w: Math.max(1, Math.round(nativeW * scale)), h: Math.max(1, Math.round(nativeH * scale)) };
+  }
+
+  function paint() {
+    if (!nativeW) return;
+    const disp = targetDisplaySize();
+    const upscaling = disp.w >= nativeW;
+
+    if (smoothing && !upscaling) {
+      // Render at device resolution for crispness, using HQ downscale.
+      const dpr = Math.min(window.devicePixelRatio || 1, 3);
+      const pxW = Math.round(disp.w * dpr);
+      const pxH = Math.round(disp.h * dpr);
+      canvas.width = pxW;
+      canvas.height = pxH;
+      drawHQ(ctx, srcCanvas, pxW, pxH);
+      canvas.style.imageRendering = 'auto';
+    } else {
+      // Sharp path: native buffer, CSS scales it (pixelated for crisp pixels).
+      canvas.width = nativeW;
+      canvas.height = nativeH;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(srcCanvas, 0, 0);
+      canvas.style.imageRendering = upscaling ? 'pixelated' : (smoothing ? 'auto' : 'pixelated');
+    }
+    // CSS display size (independent of the backing-store resolution above)
+    canvas.style.width = disp.w + 'px';
+    canvas.style.height = disp.h + 'px';
+  }
+
+  function applyZoom() {
+    if (!nativeW) return;
+    canvas.classList.remove('fit', 'scaled');
+    const zones = $('zones');
+    if (zoomMode === 'fit') {
+      canvas.classList.add('fit');
+      zones.classList.remove('panning'); // tap zones flip pages again
+    } else {
+      canvas.classList.add('scaled');
+      zones.classList.add('panning');    // let the stage scroll/pan freely
+      showChrome();                       // keep controls reachable while panning
+    }
+    paint();
+    zoomLabel.textContent = ZOOM_LABEL[zoomMode];
+    // center the page horizontally, start at the top
+    requestAnimationFrame(() => {
+      stage.scrollTop = 0;
+      stage.scrollLeft = Math.max(0, (stage.scrollWidth - stage.clientWidth) / 2);
+    });
+  }
+
+  function cycleZoom() {
+    const i = ZOOM_MODES.indexOf(zoomMode);
+    zoomMode = ZOOM_MODES[(i + 1) % ZOOM_MODES.length];
+    applyZoom();
+    showToast('Масштаб: ' + ZOOM_LABEL[zoomMode]);
+  }
+
+  // Re-fit on viewport changes (rotation, PWA resize) when in FIT mode.
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (!nativeW || zoomMode !== 'fit') return;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(paint, 120);
+  });
+
+  // ============ Invert (OLED-friendly) ============
+  function toggleInvert() {
+    inverted = !inverted;
+    canvas.classList.toggle('invert', inverted);
+    invertBtn.classList.toggle('active', inverted);
+  }
+
+  // ============ Smoothing (HQ downscale) ============
+  function toggleSmoothing() {
+    smoothing = !smoothing;
+    smoothBtn.classList.toggle('active', smoothing);
+    paint();
+    showToast(smoothing ? 'Сглаживание включено' : 'Сглаживание выключено');
+  }
+
+  // ============ Chrome (bars) show/hide ============
+  function showChrome() {
+    chromeVisible = true;
+    topbar.classList.add('show');
+    if (xtc) bottombar.classList.add('show');
+  }
+  function hideChrome() {
+    chromeVisible = false;
+    topbar.classList.remove('show');
+    bottombar.classList.remove('show');
+  }
+  function toggleChrome() { chromeVisible ? hideChrome() : showChrome(); }
+
+  // ============ Tap zones ============
+  $('zones').addEventListener('click', e => {
+    const act = e.target.closest('.z')?.dataset.act;
+    if (act === 'prev') { hideChrome(); renderPage(page - 1); }
+    else if (act === 'next') { hideChrome(); renderPage(page + 1); }
+    else if (act === 'menu') { toggleChrome(); }
+  });
+
+  // ============ Slider ============
+  slider.addEventListener('input', e => renderPage(Number(e.target.value)));
+
+  // ============ Chapters sheet ============
+  $('chapBtn').addEventListener('click', () => openSheet('chapters'));
+  $('infoBtn').addEventListener('click', () => openSheet('meta'));
+  scrim.addEventListener('click', closeSheet);
+
+  function openSheet(which) {
+    sheetChapters.style.display = which === 'chapters' ? 'block' : 'none';
+    sheetMeta.style.display = which === 'meta' ? 'block' : 'none';
+    scrim.classList.add('show');
+    sheet.classList.add('show');
+  }
+  function closeSheet() {
+    scrim.classList.remove('show');
+    sheet.classList.remove('show');
+  }
+
+  function buildChapters() {
+    chaptersBox.innerHTML = '';
+    if (!xtc.chapters.length) {
+      chaptersBox.innerHTML = '<div class="chapter" style="color:var(--text-dim)">В книге нет оглавления</div>';
+      return;
+    }
+    xtc.chapters.forEach((ch, i) => {
+      const el = document.createElement('div');
+      el.className = 'chapter';
+      el.dataset.start = ch.startPage - 1;
+      el.innerHTML = `<span>${escapeHtml(ch.chapterName || 'Глава ' + (i + 1))}</span><span class="pg">${ch.startPage}</span>`;
+      el.addEventListener('click', () => { renderPage(ch.startPage - 1); closeSheet(); });
+      chaptersBox.appendChild(el);
+    });
+  }
+
+  function markActiveChapter() {
+    if (!xtc || !xtc.chapters.length) return;
+    let activeIdx = -1;
+    xtc.chapters.forEach((ch, i) => { if (page >= ch.startPage - 1) activeIdx = i; });
+    [...chaptersBox.children].forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+  }
+
+  function buildMeta(fallbackName) {
+    const m = xtc.metadata;
+    const rows = [];
+    const dir = ['слева направо', 'справа налево', 'сверху вниз'][xtc.header.readDirection] || '—';
+    if (m) {
+      if (m.title) rows.push(['Название', m.title]);
+      if (m.author) rows.push(['Автор', m.author]);
+      if (m.publisher) rows.push(['Издатель', m.publisher]);
+      if (m.language) rows.push(['Язык', m.language]);
+      if (m.createTime) rows.push(['Создан', new Date(m.createTime * 1000).toLocaleDateString()]);
+    } else {
+      rows.push(['Файл', fallbackName]);
+    }
+    rows.push(['Страниц', String(xtc.header.pageCount)]);
+    rows.push(['Направление чтения', dir]);
+    rows.push(['Формат', xtc.header.mark === MARK.XTCH ? 'XTCH' : 'XTC']);
+    metaBody.innerHTML = rows.map(([k, v]) =>
+      `<div class="kv"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(v)}</span></div>`
+    ).join('');
+  }
+
+  // ============ Keyboard (nice on desktop / with keyboard) ============
+  document.addEventListener('keydown', e => {
+    if (!reader.classList.contains('on')) return;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') renderPage(page - 1);
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') renderPage(page + 1);
+    else if (e.key === 'Escape') closeSheet();
+  });
+
+  // ============ Swipe gestures ============
+  let touchX = null, touchY = null;
+  $('stage').addEventListener('touchstart', e => {
+    touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
+  }, { passive: true });
+  $('stage').addEventListener('touchend', e => {
+    if (touchX === null) return;
+    // in zoomed modes the stage scrolls/pans — don't hijack the gesture as a page turn
+    if (zoomMode === 'fit') {
+      const dx = e.changedTouches[0].clientX - touchX;
+      const dy = e.changedTouches[0].clientY - touchY;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+        hideChrome();
+        renderPage(dx < 0 ? page + 1 : page - 1);
+      }
+    }
+    touchX = touchY = null;
+  }, { passive: true });
+
+  // ============ Utils ============
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
+  }
+
+  // ============ Service worker (offline) ============
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+})();
+</script>
+</body>
+</html>

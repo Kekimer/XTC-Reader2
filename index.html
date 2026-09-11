@@ -93,18 +93,16 @@
   }
   canvas {
     background: #fff;
-    border: 1px solid #000;
+    border: 1px solid #fff; /* белый: невидим на белом фоне, но оставлен в вёрстке */
     display: block;
   }
   canvas.fit { max-width: 100%; max-height: 100%; }
-  canvas.scaled { max-width: none; max-height: none; }
   canvas.invert { filter: invert(1); }
 
   /* Tap zones for page turning */
   #zones { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; z-index: 5; }
   #zones .z { flex: 1; }
   #zones .z.mid { flex: 1.1; }
-  #zones.panning { pointer-events: none; }
 
   /* ---------- Bottom control bar (always visible) ---------- */
   #bottombar {
@@ -112,7 +110,7 @@
     border-top: 2px solid #000;
     background: #fff;
     padding: 8px 10px calc(var(--safe-bottom) + 8px);
-    display: flex; align-items: center; gap: 8px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
   }
   #bottombar .title {
     flex: 1; min-width: 0;
@@ -122,6 +120,7 @@
   }
   #bottombar .sub { font-size: 0.7rem; font-weight: 400; color: #000; }
   #pageReadout {
+    display: none; /* нумерация есть в самих файлах XTC */
     font-size: 0.78rem; color: #000; font-variant-numeric: tabular-nums;
     white-space: nowrap; flex: 0 0 auto; padding: 0 4px;
   }
@@ -173,6 +172,32 @@
   #metaBody .kv:last-child { border-bottom: 0; }
   #metaBody .kv .k { color: #000; }
   #metaBody .kv .v { color: #000; text-align: right; font-weight: 700; }
+
+  /* ---------- Margins dialog ---------- */
+  #marginDialog {
+    position: absolute; inset: 0; z-index: 50;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.7);
+  }
+  #marginDialog.show { display: flex; }
+  #marginBox {
+    background: #fff; border: 2px solid #000;
+    padding: 20px; width: 260px; max-width: 80%;
+    display: flex; flex-direction: column; gap: 16px; align-items: stretch;
+  }
+  #marginBox h3 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #000; text-align: center; }
+  #marginBox .stepper { display: flex; align-items: center; justify-content: center; gap: 18px; }
+  #marginBox .step {
+    appearance: none; border: 2px solid #000; background: #fff; color: #000;
+    width: 48px; height: 48px; font-size: 1.1rem; cursor: pointer;
+  }
+  #marginBox .step:active { background: #000; color: #fff; }
+  #marginBox .step:disabled { color: #bbb; border-color: #bbb; cursor: default; }
+  #marginValue { font-size: 1.6rem; font-weight: 700; min-width: 56px; text-align: center; font-variant-numeric: tabular-nums; }
+  #marginBox .ok {
+    appearance: none; border: 2px solid #000; background: #000; color: #fff;
+    padding: 10px; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+  }
 
   /* ---------- Go to dialog ---------- */
   #gotoDialog {
@@ -256,10 +281,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
       </button>
       <button class="icon-btn" id="smoothBtn" title="Сглаживание">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c3 0 3-10 6-10s3 10 6 10 3-6 6-6"/></svg>
+        <span id="smoothLabel" style="font-size:0.72rem;font-weight:700;letter-spacing:-0.02em">BIL</span>
       </button>
-      <button class="icon-btn" id="zoomBtn" title="Масштаб">
-        <span id="zoomLabel" style="font-size:0.72rem;font-weight:700;letter-spacing:-0.02em">FIT</span>
+      <button class="icon-btn" id="marginBtn" title="Поля">
+        <span style="font-size:0.82rem;font-weight:700">М</span>
       </button>
       <button class="icon-btn" id="invertBtn" title="Инвертировать цвета">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/></svg>
@@ -278,6 +303,19 @@
           <button class="cancel" id="gotoCancel">Отмена</button>
           <button class="ok" id="gotoOk">Перейти</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Margins dialog -->
+    <div id="marginDialog">
+      <div id="marginBox">
+        <h3>Поля по бокам</h3>
+        <div class="stepper">
+          <button id="marginDown" class="step">◄</button>
+          <span id="marginValue">0</span>
+          <button id="marginUp" class="step">►</button>
+        </div>
+        <button class="ok" id="marginOk">ОК</button>
       </div>
     </div>
 
@@ -535,8 +573,9 @@
   const chaptersBox = $('chapters');
   const sheetChapters = $('sheetChapters'), sheetMeta = $('sheetMeta'), metaBody = $('metaBody');
   const toast = $('toast');
-  const zoomBtn = $('zoomBtn'), zoomLabel = $('zoomLabel'), invertBtn = $('invertBtn');
+  const marginBtn = $('marginBtn'), invertBtn = $('invertBtn');
   const smoothBtn = $('smoothBtn');
+  const smoothLabel = $('smoothLabel');
 
   let xtc = null;          // book
   let singleImage = null;  // standalone image
@@ -559,17 +598,19 @@
     } catch (e) { return 0; }
   }
   let toastTimer = null;
-  let zoomMode = 'fit';    // 'fit' | '1x' | '2x'
+  let sideMargin = 0;      // white padding added left+right in file pixels (0/5/10/15/20/25)
+  const MARGIN_STEPS = [0, 5, 10, 15, 20, 25];
   let inverted = false;    // OLED-friendly color inversion
-  let smoothing = true;    // high-quality downscale (soft edges)
+  let smoothMode = 'bil'; // 'bil' (bilinear) | 'lan' (Lanczos-3) | 'off' (nearest)
+  const SMOOTH_LABEL = { bil: 'BIL', lan: 'LAN', off: 'OFF' };
   let nativeW = 0, nativeH = 0;
 
   // ============ Open file ============
   $('openBtn').addEventListener('click', () => fileInput.click());
   $('homeBtn').addEventListener('click', goHome);
-  zoomBtn.addEventListener('click', cycleZoom);
+  marginBtn.addEventListener('click', openMargin);
   invertBtn.addEventListener('click', toggleInvert);
-  smoothBtn.addEventListener('click', toggleSmoothing);
+  smoothBtn.addEventListener('click', cycleSmooth);
 
   fileInput.addEventListener('change', async e => {
     const f = e.target.files[0];
@@ -612,8 +653,8 @@
   function setupBook(fallbackName) {
     landing.style.display = 'none';
     reader.classList.add('on');
-    zoomMode = 'fit';
-    smoothBtn.classList.toggle('active', smoothing);
+    sideMargin = loadMargin();
+    updateSmoothLabel();
     invertBtn.classList.toggle('active', inverted);
     canvas.classList.toggle('invert', inverted);
     const m = xtc.metadata;
@@ -628,8 +669,8 @@
   function setupImage(fallbackName) {
     landing.style.display = 'none';
     reader.classList.add('on');
-    zoomMode = 'fit';
-    smoothBtn.classList.toggle('active', smoothing);
+    sideMargin = loadMargin();
+    updateSmoothLabel();
     invertBtn.classList.toggle('active', inverted);
     canvas.classList.toggle('invert', inverted);
     renderCurrentImage(singleImage);
@@ -647,20 +688,39 @@
     savePosition();
   }
 
-  // Offscreen source canvas holds the page at native resolution.
+  // Offscreen canvases: pageCanvas = decoded page (no margins);
+  // srcCanvas = page + white side margins (what paint() scales to screen).
+  const pageCanvas = document.createElement('canvas');
+  const pageCtx = pageCanvas.getContext('2d');
   const srcCanvas = document.createElement('canvas');
   const srcCtx = srcCanvas.getContext('2d');
+  let pageW = 0, pageH = 0; // decoded page size (no margins)
 
   function renderCurrentImage(image) {
     if (!image) return;
     const { width, height, imageData } = image.getImageData();
-    // keep the decoded page at native resolution in the offscreen source
-    srcCanvas.width = width;
-    srcCanvas.height = height;
-    srcCtx.putImageData(new ImageData(imageData, width, height), 0, 0);
-    nativeW = width;
-    nativeH = height;
-    applyZoom();
+    pageCanvas.width = width;
+    pageCanvas.height = height;
+    pageCtx.putImageData(new ImageData(imageData, width, height), 0, 0);
+    pageW = width; pageH = height;
+    composeSource();
+  }
+
+  // Build srcCanvas = white background of (pageW + 2*sideMargin) × pageH,
+  // with the decoded page centred. Margins are in file pixels (Variant A).
+  function composeSource() {
+    if (!pageW) return;
+    const m = sideMargin | 0;
+    const w = pageW + m * 2;
+    const h = pageH;
+    srcCanvas.width = w;
+    srcCanvas.height = h;
+    srcCtx.fillStyle = '#fff';
+    srcCtx.fillRect(0, 0, w, h);
+    srcCtx.drawImage(pageCanvas, m, 0);
+    nativeW = w;
+    nativeH = h;
+    paint();
   }
 
   // High-quality downscale by repeated halving (approximates area-averaging).
@@ -685,80 +745,162 @@
     destCtx.drawImage(cur, 0, 0, cw, ch, 0, 0, dw, dh);
   }
 
-  // ============ Zoom modes: fit / 1:1 / 2:1 ============
-  const ZOOM_MODES = ['fit', '1x', '2x'];
-  const ZOOM_LABEL = { fit: 'FIT', '1x': '1:1', '2x': '2:1' };
+  // ============ Lanczos-3 resample (sharp, edge-preserving) ============
+  // Universal: works for up- and down-scaling at any fractional ratio.
+  function lanczosKernel(x, a) {
+    if (x === 0) return 1;
+    if (x <= -a || x >= a) return 0;
+    const px = Math.PI * x;
+    return (a * Math.sin(px) * Math.sin(px / a)) / (px * px);
+  }
+  function buildWeights(srcLen, dstLen, a) {
+    const ratio = srcLen / dstLen;
+    const support = Math.max(1, ratio) * a; // widen window when downscaling
+    const rows = [];
+    for (let d = 0; d < dstLen; d++) {
+      const center = (d + 0.5) * ratio - 0.5;
+      const start = Math.floor(center - support);
+      const end = Math.ceil(center + support);
+      const list = []; let sum = 0;
+      for (let s = start; s <= end; s++) {
+        if (s < 0 || s >= srcLen) continue;
+        const w = lanczosKernel((center - s) / Math.max(1, ratio), a);
+        if (w === 0) continue;
+        list.push(s, w); sum += w;
+      }
+      for (let i = 1; i < list.length; i += 2) list[i] /= sum; // normalize
+      rows.push(list);
+    }
+    return rows;
+  }
+  // Resize the source canvas into dest canvas at dw×dh using Lanczos (a=3).
+  function drawLanczos(destCanvas, src, dw, dh, a = 3) {
+    const sw = src.width, sh = src.height;
+    const sctx = src.getContext('2d');
+    const sdata = sctx.getImageData(0, 0, sw, sh).data;
+    const xW = buildWeights(sw, dw, a);
+    const yW = buildWeights(sh, dh, a);
+    // pass 1: horizontal -> tmp float (dw × sh)
+    const tmp = new Float32Array(dw * sh * 4);
+    for (let sy = 0; sy < sh; sy++) {
+      const rowBase = sy * sw;
+      for (let dx = 0; dx < dw; dx++) {
+        const wl = xW[dx]; let r=0,g=0,b=0,al=0;
+        for (let k = 0; k < wl.length; k += 2) {
+          const i = (rowBase + wl[k]) * 4, w = wl[k+1];
+          r += sdata[i]*w; g += sdata[i+1]*w; b += sdata[i+2]*w; al += sdata[i+3]*w;
+        }
+        const o = (sy * dw + dx) * 4;
+        tmp[o]=r; tmp[o+1]=g; tmp[o+2]=b; tmp[o+3]=al;
+      }
+    }
+    // pass 2: vertical -> dest ImageData (dw × dh)
+    const out = new Uint8ClampedArray(dw * dh * 4);
+    for (let dy = 0; dy < dh; dy++) {
+      const wl = yW[dy];
+      for (let dx = 0; dx < dw; dx++) {
+        let r=0,g=0,b=0,al=0;
+        for (let k = 0; k < wl.length; k += 2) {
+          const i = (wl[k] * dw + dx) * 4, w = wl[k+1];
+          r += tmp[i]*w; g += tmp[i+1]*w; b += tmp[i+2]*w; al += tmp[i+3]*w;
+        }
+        const o = (dy * dw + dx) * 4;
+        out[o]=r; out[o+1]=g; out[o+2]=b; out[o+3]=al;
+      }
+    }
+    destCanvas.width = dw; destCanvas.height = dh;
+    destCanvas.getContext('2d').putImageData(new ImageData(out, dw, dh), 0, 0);
+  }
 
-  // Compute the CSS pixel size the page should occupy on screen for the mode.
+  // ============ Zoom modes: fit / 1:1 / 2:1 ============
+  // Largest size that fits the stage while preserving aspect ratio (always fit).
   function targetDisplaySize() {
-    if (zoomMode === '1x') return { w: nativeW, h: nativeH };
-    if (zoomMode === '2x') return { w: nativeW * 2, h: nativeH * 2 };
-    // fit: largest size that fits the stage while preserving aspect ratio
     const availW = stage.clientWidth - 16;   // account for stageInner padding
     const availH = stage.clientHeight - 16;
     const scale = Math.min(availW / nativeW, availH / nativeH);
     return { w: Math.max(1, Math.round(nativeW * scale)), h: Math.max(1, Math.round(nativeH * scale)) };
   }
 
+  const lanCanvas = document.createElement('canvas');
+
   function paint() {
     if (!nativeW) return;
     const disp = targetDisplaySize();
-    const upscaling = disp.w >= nativeW;
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const pxW = Math.round(disp.w * dpr);
+    const pxH = Math.round(disp.h * dpr);
 
-    if (smoothing && !upscaling) {
-      // Render at device resolution for crispness, using HQ downscale.
-      const dpr = Math.min(window.devicePixelRatio || 1, 3);
-      const pxW = Math.round(disp.w * dpr);
-      const pxH = Math.round(disp.h * dpr);
-      canvas.width = pxW;
-      canvas.height = pxH;
-      drawHQ(ctx, srcCanvas, pxW, pxH);
+    if (smoothMode === 'lan') {
+      // Lanczos-3 resample to the exact device-pixel target (sharp, edge-preserving).
+      drawLanczos(lanCanvas, srcCanvas, pxW, pxH, 3);
+      canvas.width = pxW; canvas.height = pxH;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(lanCanvas, 0, 0);
+      canvas.style.imageRendering = 'auto';
+    } else if (smoothMode === 'bil') {
+      // Bilinear: browser smoothing. HQ multi-step for downscale, direct for upscale.
+      canvas.width = pxW; canvas.height = pxH;
+      if (pxW < nativeW || pxH < nativeH) {
+        drawHQ(ctx, srcCanvas, pxW, pxH);       // downscale: repeated halving
+      } else {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(srcCanvas, 0, 0, nativeW, nativeH, 0, 0, pxW, pxH);
+      }
       canvas.style.imageRendering = 'auto';
     } else {
-      // Sharp path: native buffer, CSS scales it (pixelated for crisp pixels).
-      canvas.width = nativeW;
-      canvas.height = nativeH;
+      // OFF: nearest-neighbour, native buffer scaled by CSS (crisp pixels).
+      canvas.width = nativeW; canvas.height = nativeH;
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(srcCanvas, 0, 0);
-      canvas.style.imageRendering = upscaling ? 'pixelated' : (smoothing ? 'auto' : 'pixelated');
+      canvas.style.imageRendering = 'pixelated';
     }
-    // CSS display size (independent of the backing-store resolution above)
     canvas.style.width = disp.w + 'px';
     canvas.style.height = disp.h + 'px';
+    canvas.classList.add('fit');
   }
 
-  function applyZoom() {
-    if (!nativeW) return;
-    canvas.classList.remove('fit', 'scaled');
-    const zones = $('zones');
-    if (zoomMode === 'fit') {
-      canvas.classList.add('fit');
-      zones.classList.remove('panning'); // tap zones flip pages again
-    } else {
-      canvas.classList.add('scaled');
-      zones.classList.add('panning');    // let the stage scroll/pan freely
-      showChrome();                       // keep controls reachable while panning
-    }
-    paint();
-    zoomLabel.textContent = ZOOM_LABEL[zoomMode];
-    // center the page horizontally, start at the top
-    requestAnimationFrame(() => {
-      stage.scrollTop = 0;
-      stage.scrollLeft = Math.max(0, (stage.scrollWidth - stage.clientWidth) / 2);
-    });
+  // ============ Margins (side padding) ============
+  const marginDialog = $('marginDialog'), marginValue = $('marginValue');
+  let pendingMargin = 0;
+  function loadMargin() {
+    try { const v = parseInt(localStorage.getItem('xtcmargin'), 10); return MARGIN_STEPS.includes(v) ? v : 0; }
+    catch (e) { return 0; }
   }
-
-  function cycleZoom() {
-    const i = ZOOM_MODES.indexOf(zoomMode);
-    zoomMode = ZOOM_MODES[(i + 1) % ZOOM_MODES.length];
-    applyZoom();
-    showToast('Масштаб: ' + ZOOM_LABEL[zoomMode]);
+  function saveMargin() { try { localStorage.setItem('xtcmargin', String(sideMargin)); } catch (e) {} }
+  function refreshMarginDialog() {
+    marginValue.textContent = String(pendingMargin);
+    $('marginDown').disabled = (pendingMargin <= MARGIN_STEPS[0]);
+    $('marginUp').disabled = (pendingMargin >= MARGIN_STEPS[MARGIN_STEPS.length - 1]);
   }
+  function openMargin() {
+    if (!pageW) return;
+    pendingMargin = sideMargin;
+    refreshMarginDialog();
+    marginDialog.classList.add('show');
+  }
+  function closeMargin() { marginDialog.classList.remove('show'); }
+  function stepMargin(dir) {
+    const i = MARGIN_STEPS.indexOf(pendingMargin);
+    const ni = Math.max(0, Math.min(MARGIN_STEPS.length - 1, i + dir));
+    pendingMargin = MARGIN_STEPS[ni];
+    refreshMarginDialog();
+  }
+  function confirmMargin() {
+    sideMargin = pendingMargin;
+    saveMargin();
+    composeSource();   // rebuild source with new side padding and repaint
+    closeMargin();
+  }
+  $('marginDown').addEventListener('click', () => stepMargin(-1));
+  $('marginUp').addEventListener('click', () => stepMargin(+1));
+  $('marginOk').addEventListener('click', confirmMargin);
+  marginDialog.addEventListener('click', e => { if (e.target === marginDialog) closeMargin(); });
 
   // Re-fit on viewport changes (rotation, PWA resize) when in FIT mode.
   let resizeTimer = null;
   window.addEventListener('resize', () => {
-    if (!nativeW || zoomMode !== 'fit') return;
+    if (!nativeW) return;
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(paint, 120);
   });
@@ -771,11 +913,15 @@
   }
 
   // ============ Smoothing (HQ downscale) ============
-  function toggleSmoothing() {
-    smoothing = !smoothing;
-    smoothBtn.classList.toggle('active', smoothing);
+  function cycleSmooth() {
+    smoothMode = smoothMode === 'bil' ? 'lan' : smoothMode === 'lan' ? 'off' : 'bil';
+    updateSmoothLabel();
     paint();
-    showToast(smoothing ? 'Сглаживание включено' : 'Сглаживание выключено');
+    showToast('Сглаживание: ' + SMOOTH_LABEL[smoothMode]);
+  }
+  function updateSmoothLabel() {
+    smoothLabel.textContent = SMOOTH_LABEL[smoothMode];
+    smoothBtn.classList.toggle('active', smoothMode !== 'off');
   }
 
   // ============ Chrome ============
@@ -894,8 +1040,7 @@
   }, { passive: true });
   $('stage').addEventListener('touchend', e => {
     if (touchX === null) return;
-    // in zoomed modes the stage scrolls/pans — don't hijack the gesture as a page turn
-    if (zoomMode === 'fit') {
+    {
       const dx = e.changedTouches[0].clientX - touchX;
       const dy = e.changedTouches[0].clientY - touchY;
       if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {

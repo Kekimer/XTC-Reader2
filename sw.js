@@ -1,5 +1,5 @@
 // XTC Reader — offline cache
-const CACHE = 'xtc-reader-v6';
+const CACHE = 'xtc-reader-v7';
 const ASSETS = [
   './',
   './index.html',

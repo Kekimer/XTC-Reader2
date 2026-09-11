@@ -51,11 +51,11 @@
   }
   #libTop .libTitle { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; color: #000; }
   #libOpenBtn {
-    appearance: none; background: #fff; color: #000; border: 2px solid #000;
+    appearance: none; background: none; color: #000; border: none; padding: 0;
     width: 42px; height: 42px; display: grid; place-items: center; cursor: pointer;
   }
-  #libOpenBtn:active { background: #000; color: #fff; }
-  #libOpenBtn svg { width: 22px; height: 22px; }
+  #libOpenBtn:active { opacity: 0.5; }
+  #libOpenBtn svg { width: 40px; height: 40px; }
 
   /* Empty state: centred book icon */
   #libEmpty {
@@ -829,8 +829,8 @@
 
   // Reopen a book from the shelf via its stored file handle (if available).
   async function reopenBook(id) {
-    const handle = await idbGet(id);
-    if (handle && window.showOpenFilePicker) {
+    const handle = FSA_OK ? await idbGet(id) : null;
+    if (handle) {
       try {
         const perm = await handle.queryPermission({ mode: 'read' });
         if (perm !== 'granted') {
@@ -866,6 +866,8 @@
   }
 
 
+  // ============ Open file ============
+  $('libOpenBtn').addEventListener('click', openFilePicker);
   $('homeBtn').addEventListener('click', goHome);
   marginBtn.addEventListener('click', openMargin);
   invertBtn.addEventListener('click', toggleInvert);
@@ -874,18 +876,25 @@
   // Open via File System Access API when available (so the shelf can reopen files),
   // otherwise fall back to a plain file input.
   let currentFileHandle = null;
+  // FSA (showOpenFilePicker) only where it truly works — desktop Chromium.
+  // On mobile (incl. Opera Android / e-ink) it may exist but silently fail,
+  // so use the plain file input there. Any FSA error also falls back.
+  const FSA_OK = !!window.showOpenFilePicker && !/Android|Mobile|iPhone|iPad/i.test(navigator.userAgent);
   async function openFilePicker() {
-    if (window.showOpenFilePicker) {
+    if (FSA_OK) {
       try {
         const [handle] = await window.showOpenFilePicker({
           types: [{ description: 'Xteink', accept: { 'application/octet-stream': ['.xtc', '.xtch', '.xtcz', '.xtz4', '.xtg', '.xth'] } }],
         });
         const file = await handle.getFile();
         await openFile(file, handle);
-      } catch (e) { /* user cancelled */ }
-    } else {
-      fileInput.click();
+        return;
+      } catch (e) {
+        if (e && e.name === 'AbortError') return; // user cancelled
+        // otherwise fall through to the plain input
+      }
     }
+    fileInput.click();
   }
   fileInput.addEventListener('change', async e => {
     const f = e.target.files[0];

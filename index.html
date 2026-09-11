@@ -38,38 +38,108 @@
 
   #app { position: fixed; inset: 0; display: flex; flex-direction: column; }
 
-  /* ---------- Empty / landing state ---------- */
-  #landing {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 22px;
-    padding: 32px;
-    text-align: center;
+  /* ---------- Library (home) ---------- */
+  #library { flex: 1; display: none; flex-direction: column; position: relative; }
+  #library.on { display: flex; }
+
+  /* Top bar */
+  #libTop {
+    flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: calc(var(--safe-top) + 14px) 18px 14px;
+    border-bottom: 2px solid #000;
   }
-  #landing .logo {
-    width: 76px; height: 76px;
-    border: 2px solid #000;
+  #libTop .libTitle { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; color: #000; }
+  #libOpenBtn {
+    appearance: none; background: #fff; color: #000; border: 2px solid #000;
+    width: 42px; height: 42px; display: grid; place-items: center; cursor: pointer;
+  }
+  #libOpenBtn:active { background: #000; color: #fff; }
+  #libOpenBtn svg { width: 22px; height: 22px; }
+
+  /* Empty state: centred book icon */
+  #libEmpty {
+    position: absolute; inset: 0; z-index: 1;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  #libEmpty svg { width: 96px; height: 96px; opacity: 0.85; }
+  #library.has-books #libEmpty { display: none; }
+
+  /* Middle block: shelf 2 rows × 3 */
+  #libShelf {
+    flex: 1;
+    display: none;                     /* shown only when a book exists */
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 14px;
+    padding: 18px;
+    align-content: start;
+  }
+  #library.has-books #libShelf { display: grid; }
+
+  .thumb {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    cursor: pointer; min-width: 0;
+  }
+  .thumb .cover {
+    position: relative;
+    width: 100%; aspect-ratio: 480 / 800;
+    border: 1px solid #000; background: #fff;
+    overflow: hidden;
     display: grid; place-items: center;
   }
-  #landing .logo svg { width: 40px; height: 40px; }
-  #landing h1 { margin: 0; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; }
-  #landing p { margin: 0; color: #000; font-size: 0.95rem; max-width: 300px; line-height: 1.55; }
-
-  .btn-primary {
-    appearance: none;
-    background: #fff;
-    color: #000;
-    border: 2px solid #000;
-    font-size: 1.02rem; font-weight: 700;
-    padding: 14px 28px;
-    cursor: pointer;
+  .thumb .cover img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .thumb:active .cover { background: #eee; }
+  /* corner badge: fixed width to hold "100%" + side padding, centred text */
+  .thumb .badge {
+    position: absolute; top: 0; right: 0;
+    width: 46px; padding: 3px 0;
+    background: #000; color: #fff;
+    font-size: 0.62rem; font-weight: 700;
+    text-align: center; letter-spacing: 0.01em;
   }
-  .btn-primary:active { background: #000; color: #fff; }
+  .thumb .name {
+    width: 100%;
+    font-size: 0.72rem; color: #000; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
 
-  .hint { color: #000; font-size: 0.8rem; }
+  /* Bottom block: continue reading */
+  #libContinue {
+    flex: 0 0 auto;
+    display: none;
+    align-items: center; gap: 16px;
+    padding: 18px;
+    border-top: 2px solid #000;
+    position: relative;
+  }
+  #library.has-books #libContinue { display: flex; }
+  /* thumbnail overhangs the divider line for a bit of dynamism */
+  #contThumb {
+    flex: 0 0 auto;
+    width: 78px; aspect-ratio: 480 / 800;
+    border: 1px solid #000; background: #fff;
+    margin-top: -34px;                 /* pull up above the top border */
+    overflow: hidden;
+  }
+  #contThumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  #contInfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  #contTitle {
+    font-size: 0.95rem; font-weight: 700; color: #000;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #contAuthor {
+    font-size: 0.82rem; font-weight: 400; color: #000;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #contStats {
+    display: flex; justify-content: space-between;
+    font-size: 0.78rem; color: #000; margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  #contBar { height: 6px; background: #ccc; margin-top: 6px; }
+  #contBarFill { height: 100%; background: #000; width: 0%; }
 
   /* ---------- Reader ---------- */
   #reader { flex: 1; position: relative; display: none; flex-direction: column; }
@@ -97,7 +167,7 @@
     display: block;
   }
   canvas.fit { max-width: 100%; max-height: 100%; }
-  canvas.invert { filter: invert(1); }
+  #app.invert { filter: invert(1); }
 
   /* Tap zones for page turning */
   #zones { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; z-index: 5; }
@@ -242,21 +312,41 @@
 <body>
 <div id="app">
 
-  <!-- Landing -->
-  <div id="landing">
-    <div class="logo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#0b1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Library (home screen) -->
+  <div id="library">
+    <!-- Top bar: title + open-file -->
+    <div id="libTop">
+      <span class="libTitle">XTC-Reader</span>
+      <button id="libOpenBtn" title="Открыть файл">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      </button>
+    </div>
+
+    <!-- Empty state: centred book icon, hidden once a book exists -->
+    <div id="libEmpty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M4 4h11a2 2 0 0 1 2 2v14a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2z"/>
         <path d="M17 6h3v13a2 2 0 0 1-2 2h-1"/>
         <path d="M8 8h5M8 11h5"/>
       </svg>
     </div>
-    <div>
-      <h1>XTC Reader</h1>
-      <p>Открывайте и читайте книги Xteink — форматы XTC, XTCH, XTZ4, XTG и XTH.</p>
+
+    <!-- Middle block: shelf of up to 6 thumbnails (2 rows × 3) -->
+    <div id="libShelf"></div>
+
+    <!-- Bottom block: continue reading (last opened book) -->
+    <div id="libContinue">
+      <div id="contThumb"></div>
+      <div id="contInfo">
+        <div id="contTitle"></div>
+        <div id="contAuthor"></div>
+        <div id="contStats">
+          <span id="contPercent"></span>
+          <span id="contTime"></span>
+        </div>
+        <div id="contBar"><div id="contBarFill"></div></div>
+      </div>
     </div>
-    <button class="btn-primary" id="openBtn">Открыть файл</button>
-    <span class="hint">Установите на главный экран для работы офлайн</span>
   </div>
 
   <!-- Reader -->
@@ -563,8 +653,9 @@
 
   // ============ App state & DOM ============
   const $ = id => document.getElementById(id);
-  const landing = $('landing'), reader = $('reader');
+  const library = $('library'), reader = $('reader');
   const fileInput = $('fileInput');
+  const app = $('app');
   const canvas = $('canvas'), ctx = canvas.getContext('2d');
   const stage = $('stage');
   const bottombar = $('bottombar');
@@ -605,29 +696,215 @@
   const SMOOTH_LABEL = { bil: 'BIL', lan: 'LAN', off: 'OFF' };
   let nativeW = 0, nativeH = 0;
 
-  // ============ Open file ============
-  $('openBtn').addEventListener('click', () => fileInput.click());
+  // ============ Library (shelf + continue) ============
+  // Metadata for up to N books kept in localStorage; file handles (for reopening)
+  // kept in IndexedDB, keyed by the same id. Newest first.
+  const LIB_KEY = 'xtclib';
+  const MAX_BOOKS = 6;
+
+  function loadLib() {
+    try { const a = JSON.parse(localStorage.getItem(LIB_KEY)); return Array.isArray(a) ? a : []; }
+    catch (e) { return []; }
+  }
+  function saveLib(list) {
+    try { localStorage.setItem(LIB_KEY, JSON.stringify(list.slice(0, MAX_BOOKS))); } catch (e) {}
+  }
+
+  // --- tiny IndexedDB for FileSystemFileHandle objects ---
+  let idbPromise = null;
+  function idb() {
+    if (idbPromise) return idbPromise;
+    idbPromise = new Promise((res, rej) => {
+      const r = indexedDB.open('xtclib-handles', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('handles');
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    return idbPromise;
+  }
+  async function idbPut(key, val) {
+    try { const db = await idb(); return new Promise((res) => { const tx = db.transaction('handles', 'readwrite'); tx.objectStore('handles').put(val, key); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
+    catch (e) {}
+  }
+  async function idbGet(key) {
+    try { const db = await idb(); return new Promise((res) => { const tx = db.transaction('handles', 'readonly'); const g = tx.objectStore('handles').get(key); g.onsuccess = () => res(g.result || null); g.onerror = () => res(null); }); }
+    catch (e) { return null; }
+  }
+
+  // Render a small cover thumbnail (page 0) as a compact JPEG data URL.
+  function makeThumb() {
+    if (!xtc) return null;
+    try {
+      const img = xtc.getPageImage(0);
+      const { width, height, imageData } = img.getImageData();
+      const tw = 120, th = Math.round(tw * height / width);
+      const tc = document.createElement('canvas'); tc.width = width; tc.height = height;
+      tc.getContext('2d').putImageData(new ImageData(imageData, width, height), 0, 0);
+      const out = document.createElement('canvas'); out.width = tw; out.height = th;
+      const octx = out.getContext('2d'); octx.imageSmoothingEnabled = true; octx.imageSmoothingQuality = 'high';
+      octx.drawImage(tc, 0, 0, tw, th);
+      return out.toDataURL('image/jpeg', 0.6);
+    } catch (e) { return null; }
+  }
+
+  // Add / update a book at the top of the shelf.
+  async function addToLibrary(fileName, handle) {
+    let list = loadLib();
+    const id = fileName; // by file name (matches reading-position key)
+    const total = xtc ? xtc.indexTable.length : 0;
+    const meta = xtc ? xtc.metadata : null;
+    const existing = list.find(b => b.id === id);
+    const thumb = makeThumb();
+    const entry = {
+      id,
+      name: (meta && meta.title) ? meta.title : fileName.replace(/\.[^.]+$/, ''),
+      author: (meta && meta.author) ? meta.author : '',
+      total,
+      page: existing ? existing.page : page,
+      thumb: thumb || (existing ? existing.thumb : null),
+      readMs: existing ? (existing.readMs || 0) : 0,
+      hasHandle: !!handle,
+    };
+    list = list.filter(b => b.id !== id);
+    list.unshift(entry);
+    list = list.slice(0, MAX_BOOKS);
+    saveLib(list);
+    if (handle) await idbPut(id, handle);
+    renderLibrary();
+  }
+
+  // Update the current book's progress + read time in the library store.
+  function updateLibProgress() {
+    if (!xtc || !bookKey) return;
+    const id = bookKey.replace(/^xtcpos:/, '');
+    const list = loadLib();
+    const b = list.find(x => x.id === id);
+    if (!b) return;
+    b.page = page;
+    b.total = xtc.indexTable.length;
+    saveLib(list);
+  }
+
+  function truncName(s) { return s; } // CSS ellipsis handles it
+
+  function renderLibrary() {
+    const list = loadLib();
+    library.classList.toggle('has-books', list.length > 0);
+    // shelf: up to 6
+    const shelf = $('libShelf');
+    shelf.innerHTML = '';
+    list.slice(0, MAX_BOOKS).forEach(b => {
+      const el = document.createElement('div');
+      el.className = 'thumb';
+      const pct = b.total ? Math.round((b.page + 1) / b.total * 100) : 0;
+      const badge = (b.page > 10) ? (pct + '%') : 'NEW';
+      el.innerHTML =
+        '<div class="cover">' +
+          (b.thumb ? '<img src="' + b.thumb + '" alt="">' : '') +
+          '<span class="badge">' + badge + '</span>' +
+        '</div>' +
+        '<div class="name">' + escapeHtml(b.name) + '</div>';
+      el.addEventListener('click', () => reopenBook(b.id));
+      shelf.appendChild(el);
+    });
+    // continue block = newest book
+    if (list.length) {
+      const b = list[0];
+      $('contThumb').innerHTML = b.thumb ? '<img src="' + b.thumb + '" alt="">' : '';
+      $('contTitle').textContent = b.name;
+      $('contAuthor').textContent = b.author || '';
+      const pct = b.total ? Math.round((b.page + 1) / b.total * 100) : 0;
+      $('contPercent').textContent = pct + '% прочитано';
+      $('contTime').textContent = fmtTime(b.readMs || 0);
+      $('contBarFill').style.width = pct + '%';
+    }
+  }
+
+  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+  function fmtTime(ms) {
+    const min = Math.floor(ms / 60000);
+    const h = Math.floor(min / 60), m = min % 60;
+    return h > 0 ? (h + 'h' + (m < 10 ? '0' : '') + m + 'm') : (m + 'm');
+  }
+
+  // Reopen a book from the shelf via its stored file handle (if available).
+  async function reopenBook(id) {
+    const handle = await idbGet(id);
+    if (handle && window.showOpenFilePicker) {
+      try {
+        const perm = await handle.queryPermission({ mode: 'read' });
+        if (perm !== 'granted') {
+          const req = await handle.requestPermission({ mode: 'read' });
+          if (req !== 'granted') { showToast('Нет доступа к файлу — выберите заново'); openFilePicker(); return; }
+        }
+        const file = await handle.getFile();
+        await openFile(file, handle);
+        return;
+      } catch (e) { /* fall through to picker */ }
+    }
+    showToast('Выберите файл книги');
+    openFilePicker();
+  }
+
+  // ============ Read time (counts only while turning pages) ============
+  let readTimerActive = false, lastTurnTs = 0;
+  const MAX_GAP_MS = 5 * 60 * 1000; // ignore gaps longer than 5 min (user stepped away)
+  function startReadTimer() { readTimerActive = true; lastTurnTs = Date.now(); }
+  function stopReadTimer() { addReadGap(); readTimerActive = false; }
+  function addReadGap() {
+    if (!readTimerActive || !bookKey) return;
+    const now = Date.now();
+    const gap = now - lastTurnTs;
+    lastTurnTs = now;
+    if (gap <= 0 || gap > MAX_GAP_MS) return; // skip long idle gaps
+    const id = bookKey.replace(/^xtcpos:/, '');
+    const list = loadLib();
+    const b = list.find(x => x.id === id);
+    if (!b) return;
+    b.readMs = (b.readMs || 0) + gap;
+    saveLib(list);
+  }
+
+
   $('homeBtn').addEventListener('click', goHome);
   marginBtn.addEventListener('click', openMargin);
   invertBtn.addEventListener('click', toggleInvert);
   smoothBtn.addEventListener('click', cycleSmooth);
 
+  // Open via File System Access API when available (so the shelf can reopen files),
+  // otherwise fall back to a plain file input.
+  let currentFileHandle = null;
+  async function openFilePicker() {
+    if (window.showOpenFilePicker) {
+      try {
+        const [handle] = await window.showOpenFilePicker({
+          types: [{ description: 'Xteink', accept: { 'application/octet-stream': ['.xtc', '.xtch', '.xtcz', '.xtz4', '.xtg', '.xth'] } }],
+        });
+        const file = await handle.getFile();
+        await openFile(file, handle);
+      } catch (e) { /* user cancelled */ }
+    } else {
+      fileInput.click();
+    }
+  }
   fileInput.addEventListener('change', async e => {
     const f = e.target.files[0];
-    if (!f) return;
+    if (f) await openFile(f, null);
+    fileInput.value = '';
+  });
+
+  async function openFile(f, handle) {
     try {
       let buf = await f.arrayBuffer();
       let mark = new DataView(buf).getUint32(0, LE);
-      // XTZ4 = LZ4-compressed XTC/XTCH container — decompress, then parse as usual
-      if (mark === MARK.XTZ4) {
-        buf = decodeXTZ4(buf);
-        mark = new DataView(buf).getUint32(0, LE);
-      }
+      if (mark === MARK.XTZ4) { buf = decodeXTZ4(buf); mark = new DataView(buf).getUint32(0, LE); }
+      currentFileHandle = handle || null;
       if (mark === MARK.XTC || mark === MARK.XTCH) {
         xtc = new XTC_File(buf);
         singleImage = null;
         page = 0;
         setupBook(f.name);
+        await addToLibrary(f.name, handle);
       } else if (mark === MARK.XTG || mark === MARK.XTH) {
         singleImage = new XTGH_Image(buf);
         xtc = null;
@@ -639,40 +916,41 @@
       showToast('Ошибка: ' + err.message);
       console.error(err);
     }
-    fileInput.value = '';
-  });
+  }
 
   function goHome() {
+    stopReadTimer();
     reader.classList.remove('on');
-    landing.style.display = 'flex';
+    library.classList.add('on');
     closeSheet();
     hideChrome();
-    xtc = null; singleImage = null; bookKey = null;
+    xtc = null; singleImage = null; bookKey = null; currentFileHandle = null;
+    renderLibrary();
   }
 
   function setupBook(fallbackName) {
-    landing.style.display = 'none';
+    library.classList.remove('on');
     reader.classList.add('on');
     sideMargin = loadMargin();
     updateSmoothLabel();
     invertBtn.classList.toggle('active', inverted);
-    canvas.classList.toggle('invert', inverted);
+    app.classList.toggle('invert', inverted);
     const m = xtc.metadata;
     buildChapters();
     buildMeta(fallbackName);
-    // remember this book by file name; resume from the saved page if any
     bookKey = posKey(fallbackName);
     const startPage = loadPosition(fallbackName, xtc.indexTable.length - 1);
     renderPage(startPage);
+    startReadTimer();
   }
 
   function setupImage(fallbackName) {
-    landing.style.display = 'none';
+    library.classList.remove('on');
     reader.classList.add('on');
     sideMargin = loadMargin();
     updateSmoothLabel();
     invertBtn.classList.toggle('active', inverted);
-    canvas.classList.toggle('invert', inverted);
+    app.classList.toggle('invert', inverted);
     renderCurrentImage(singleImage);
   }
 
@@ -686,6 +964,8 @@
     pageReadout.textContent = `Страница ${idx + 1} из ${xtc.indexTable.length}`;
     markActiveChapter();
     savePosition();
+    addReadGap();          // accumulate read time between page turns
+    updateLibProgress();   // keep shelf progress in sync
   }
 
   // Offscreen canvases: pageCanvas = decoded page (no margins);
@@ -908,7 +1188,7 @@
   // ============ Invert (OLED-friendly) ============
   function toggleInvert() {
     inverted = !inverted;
-    canvas.classList.toggle('invert', inverted);
+    app.classList.toggle('invert', inverted);
     invertBtn.classList.toggle('active', inverted);
   }
 
@@ -1061,6 +1341,13 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
   }
+
+  // ============ Init: show the library on start ============
+  library.classList.add('on');
+  renderLibrary();
+  // persist accumulated read time when leaving/hiding the page
+  document.addEventListener('visibilitychange', () => { if (document.hidden) addReadGap(); });
+  window.addEventListener('pagehide', addReadGap);
 
   // ============ Service worker (offline) ============
   if ('serviceWorker' in navigator) {

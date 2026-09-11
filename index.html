@@ -11,6 +11,13 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 <style>
+  @font-face {
+    font-family: 'Lexend Deca';
+    src: url('LexendDeca-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+  }
   :root {
     --bg: #ffffff;
     --surface: #ffffff;
@@ -49,7 +56,7 @@
     padding: calc(var(--safe-top) + 14px) 18px 14px;
     border-bottom: 2px solid #000;
   }
-  #libTop .libTitle { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; color: #000; }
+  #libTop .libTitle { font-family: 'Lexend Deca', system-ui, sans-serif; font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; color: #000; }
   #libOpenBtn {
     appearance: none; background: none; color: #000; border: none; padding: 0;
     width: 42px; height: 42px; display: grid; place-items: center; cursor: pointer;
@@ -1358,10 +1365,20 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden) addReadGap(); });
   window.addEventListener('pagehide', addReadGap);
 
-  // ============ Service worker (offline) ============
+  // ============ Service worker (offline + auto-update) ============
   if ('serviceWorker' in navigator) {
+    // When a new SW takes control, reload once to show the fresh version.
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloaded) return;
+      reloaded = true;
+      location.reload();
+    });
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
+      navigator.serviceWorker.register('sw.js').then(reg => {
+        // periodically check for updates while the app is open
+        setInterval(() => reg.update().catch(() => {}), 60 * 1000);
+      }).catch(() => {});
     });
   }
 })();

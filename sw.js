@@ -1,9 +1,10 @@
-// XTC Reader — offline cache
-const CACHE = 'xtc-reader-v11';
+// XTC Reader — offline cache with auto-update
+const CACHE = 'xtc-reader-v13';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
+  './LexendDeca-Bold.ttf',
   './icon-96.png',
   './icon-192.png',
   './icon-512.png',
@@ -23,12 +24,32 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-  e.respondWith(
-    caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
-      // cache same-origin GETs opportunistically
-      const copy = res.clone();
-      caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
-      return res;
-    }).catch(() => caches.match('./index.html')))
-  );
+  const req = e.request;
+  const isDoc = req.mode === 'navigate' ||
+                req.destination === 'document' ||
+                req.url.endsWith('/index.html') ||
+                req.url.endsWith('/');
+
+  if (isDoc) {
+    // Network-first: always try the freshest HTML online, fall back to cache offline.
+    e.respondWith(
+      fetch(req).then(res => {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
+        return res;
+      }).catch(() => caches.match(req).then(hit => hit || caches.match('./index.html')))
+    );
+  } else {
+    // Cache-first for static assets.
+    e.respondWith(
+      caches.match(req).then(hit => {
+        if (hit) return hit;
+        return fetch(req).then(res => {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
+          return res;
+        });
+      })
+    );
+  }
 });

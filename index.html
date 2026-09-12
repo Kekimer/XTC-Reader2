@@ -52,17 +52,17 @@
   /* Top bar */
   #libTop {
     flex: 0 0 auto;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: calc(var(--safe-top) + 14px) 18px 14px;
+    display: flex; align-items: flex-end; justify-content: space-between;
+    padding: calc(var(--safe-top) + 14px) 18px 12px;
     border-bottom: 2px solid #000;
   }
-  #libTop .libTitle { font-family: 'Lexend Deca', system-ui, sans-serif; font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; color: #000; }
+  #libTop .libTitle { font-family: 'Lexend Deca', system-ui, sans-serif; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; color: #000; line-height: 1; }
   #libOpenBtn {
     appearance: none; background: none; color: #000; border: none; padding: 0;
     width: 42px; height: 42px; display: grid; place-items: center; cursor: pointer;
   }
   #libOpenBtn:active { opacity: 0.5; }
-  #libOpenBtn svg { width: 40px; height: 40px; }
+  #libOpenBtn svg { width: 40px; height: 40px; display: block; transform: translateY(3px); }
 
   /* Empty state: centred book icon */
   #libEmpty {
@@ -92,17 +92,17 @@
   .thumb .cover {
     position: relative;
     width: 100%; aspect-ratio: 480 / 800;
-    border: 1px solid #000; background: #fff;
+    border: 2px solid #000; background: #fff;
     overflow: hidden;
-    display: grid; place-items: center;
   }
-  .thumb .cover img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .thumb .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .thumb:active .cover { background: #eee; }
   /* corner badge: fixed width to hold "100%" + side padding, centred text */
   .thumb .badge {
     position: absolute; top: 0; right: 0;
     width: 46px; padding: 3px 0;
     background: #000; color: #fff;
+    font-family: 'Lexend Deca', system-ui, sans-serif;
     font-size: 0.62rem; font-weight: 700;
     text-align: center; letter-spacing: 0.01em;
   }
@@ -126,11 +126,11 @@
   #contThumb {
     flex: 0 0 auto;
     width: 78px; aspect-ratio: 480 / 800;
-    border: 1px solid #000; background: #fff;
+    border: 2px solid #000; background: #fff;
     margin-top: -34px;                 /* pull up above the top border */
     overflow: hidden;
   }
-  #contThumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  #contThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
   #contInfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
   #contTitle {
     font-size: 0.95rem; font-weight: 700; color: #000;
@@ -217,6 +217,7 @@
   #scrim {
     position: absolute; inset: 0; z-index: 40;
     background: rgba(255,255,255,0.6);
+    background-image: repeating-conic-gradient(#000 0% 25%, transparent 0% 50%); background-size: 4px 4px; background-position: 0 0;
     display: none;
   }
   #scrim.show { display: block; }
@@ -255,6 +256,7 @@
     position: absolute; inset: 0; z-index: 50;
     display: none; align-items: center; justify-content: center;
     background: rgba(255,255,255,0.7);
+    background-image: repeating-conic-gradient(#000 0% 25%, transparent 0% 50%); background-size: 4px 4px; background-position: 0 0;
   }
   #marginDialog.show { display: flex; }
   #marginBox {
@@ -281,6 +283,7 @@
     position: absolute; inset: 0; z-index: 50;
     display: none; align-items: center; justify-content: center;
     background: rgba(255,255,255,0.7);
+    background-image: repeating-conic-gradient(#000 0% 25%, transparent 0% 50%); background-size: 4px 4px; background-position: 0 0;
   }
   #gotoDialog.show { display: flex; }
   #gotoBox {
@@ -325,7 +328,7 @@
     <div id="libTop">
       <span class="libTitle">XTC-Reader</span>
       <button id="libOpenBtn" title="Открыть файл">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
       </button>
     </div>
 
@@ -717,25 +720,29 @@
     try { localStorage.setItem(LIB_KEY, JSON.stringify(list.slice(0, MAX_BOOKS))); } catch (e) {}
   }
 
-  // --- tiny IndexedDB for FileSystemFileHandle objects ---
+  // --- IndexedDB storing the original book files (ArrayBuffer) by id ---
   let idbPromise = null;
   function idb() {
     if (idbPromise) return idbPromise;
     idbPromise = new Promise((res, rej) => {
-      const r = indexedDB.open('xtclib-handles', 1);
-      r.onupgradeneeded = () => r.result.createObjectStore('handles');
+      const r = indexedDB.open('xtclib-files', 1);
+      r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains('files')) r.result.createObjectStore('files'); };
       r.onsuccess = () => res(r.result);
       r.onerror = () => rej(r.error);
     });
     return idbPromise;
   }
   async function idbPut(key, val) {
-    try { const db = await idb(); return new Promise((res) => { const tx = db.transaction('handles', 'readwrite'); tx.objectStore('handles').put(val, key); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
-    catch (e) {}
+    try { const db = await idb(); return new Promise((res) => { const tx = db.transaction('files', 'readwrite'); tx.objectStore('files').put(val, key); tx.oncomplete = () => res(true); tx.onerror = () => res(false); }); }
+    catch (e) { return false; }
   }
   async function idbGet(key) {
-    try { const db = await idb(); return new Promise((res) => { const tx = db.transaction('handles', 'readonly'); const g = tx.objectStore('handles').get(key); g.onsuccess = () => res(g.result || null); g.onerror = () => res(null); }); }
+    try { const db = await idb(); return new Promise((res) => { const tx = db.transaction('files', 'readonly'); const g = tx.objectStore('files').get(key); g.onsuccess = () => res(g.result || null); g.onerror = () => res(null); }); }
     catch (e) { return null; }
+  }
+  async function idbDelete(key) {
+    try { const db = await idb(); return new Promise((res) => { const tx = db.transaction('files', 'readwrite'); tx.objectStore('files').delete(key); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
+    catch (e) {}
   }
 
   // Render a small cover thumbnail (page 0) as a compact JPEG data URL.
@@ -754,10 +761,11 @@
     } catch (e) { return null; }
   }
 
-  // Add / update a book at the top of the shelf.
-  async function addToLibrary(fileName, handle) {
+  // Add / update a book at the top of the shelf. If origBuf is given, store the
+  // original file bytes in IndexedDB so the book can be reopened by tapping.
+  async function addToLibrary(fileName, origBuf) {
     let list = loadLib();
-    const id = fileName; // by file name (matches reading-position key)
+    const id = fileName;
     const total = xtc ? xtc.indexTable.length : 0;
     const meta = xtc ? xtc.metadata : null;
     const existing = list.find(b => b.id === id);
@@ -770,13 +778,20 @@
       page: existing ? existing.page : page,
       thumb: thumb || (existing ? existing.thumb : null),
       readMs: existing ? (existing.readMs || 0) : 0,
-      hasHandle: !!handle,
+      stored: existing ? existing.stored : false,
     };
     list = list.filter(b => b.id !== id);
     list.unshift(entry);
+    // books pushed past MAX_BOOKS drop off the shelf AND out of storage
+    const dropped = list.slice(MAX_BOOKS);
+    for (const d of dropped) { await idbDelete(d.id); }
     list = list.slice(0, MAX_BOOKS);
+    // store the original file bytes (once) so tapping the thumbnail can reopen it
+    if (origBuf && !entry.stored) {
+      const ok = await idbPut(id, origBuf);
+      if (ok) entry.stored = true;
+    }
     saveLib(list);
-    if (handle) await idbPut(id, handle);
     renderLibrary();
   }
 
@@ -824,6 +839,7 @@
       $('contPercent').textContent = pct + '% прочитано';
       $('contTime').textContent = fmtTime(b.readMs || 0);
       $('contBarFill').style.width = pct + '%';
+      $('libContinue').dataset.id = b.id;
     }
   }
 
@@ -834,22 +850,16 @@
     return h > 0 ? (h + 'h' + (m < 10 ? '0' : '') + m + 'm') : (m + 'm');
   }
 
-  // Reopen a book from the shelf via its stored file handle (if available).
+  // Reopen a book from the shelf using its stored file bytes in IndexedDB.
   async function reopenBook(id) {
-    const handle = FSA_OK ? await idbGet(id) : null;
-    if (handle) {
-      try {
-        const perm = await handle.queryPermission({ mode: 'read' });
-        if (perm !== 'granted') {
-          const req = await handle.requestPermission({ mode: 'read' });
-          if (req !== 'granted') { showToast('Нет доступа к файлу — выберите заново'); openFilePicker(); return; }
-        }
-        const file = await handle.getFile();
-        await openFile(file, handle);
-        return;
-      } catch (e) { /* fall through to picker */ }
+    const buf = await idbGet(id);
+    if (buf) {
+      const file = new File([buf], id);
+      await openFile(file, null, true); // fromLibrary: don't re-store
+      return;
     }
-    showToast('Выберите файл книги');
+    // not stored (e.g. cleared) — ask the user to pick it again
+    showToast('Файл не найден в хранилище — выберите заново');
     openFilePicker();
   }
 
@@ -882,45 +892,28 @@
 
   // Open via File System Access API when available (so the shelf can reopen files),
   // otherwise fall back to a plain file input.
-  let currentFileHandle = null;
-  // FSA (showOpenFilePicker) only where it truly works — desktop Chromium.
-  // On mobile (incl. Opera Android / e-ink) it may exist but silently fail,
-  // so use the plain file input there. Any FSA error also falls back.
-  const FSA_OK = !!window.showOpenFilePicker && !/Android|Mobile|iPhone|iPad/i.test(navigator.userAgent);
-  async function openFilePicker() {
-    if (FSA_OK) {
-      try {
-        const [handle] = await window.showOpenFilePicker({
-          types: [{ description: 'Xteink', accept: { 'application/octet-stream': ['.xtc', '.xtch', '.xtcz', '.xtz4', '.xtg', '.xth'] } }],
-        });
-        const file = await handle.getFile();
-        await openFile(file, handle);
-        return;
-      } catch (e) {
-        if (e && e.name === 'AbortError') return; // user cancelled
-        // otherwise fall through to the plain input
-      }
-    }
-    fileInput.click();
-  }
+  // Files are stored in IndexedDB by the app itself, so a plain file input is
+  // enough everywhere (no File System Access API needed).
+  function openFilePicker() { fileInput.click(); }
   fileInput.addEventListener('change', async e => {
     const f = e.target.files[0];
-    if (f) await openFile(f, null);
+    if (f) await openFile(f, null, false);
     fileInput.value = '';
   });
 
-  async function openFile(f, handle) {
+  async function openFile(f, handle, fromLibrary) {
     try {
-      let buf = await f.arrayBuffer();
+      const origBuf = await f.arrayBuffer();   // keep the original (possibly .xtcz) bytes
+      let buf = origBuf;
       let mark = new DataView(buf).getUint32(0, LE);
       if (mark === MARK.XTZ4) { buf = decodeXTZ4(buf); mark = new DataView(buf).getUint32(0, LE); }
-      currentFileHandle = handle || null;
       if (mark === MARK.XTC || mark === MARK.XTCH) {
         xtc = new XTC_File(buf);
         singleImage = null;
         page = 0;
         setupBook(f.name);
-        await addToLibrary(f.name, handle);
+        // store the original file in the library (unless it was just loaded from there)
+        await addToLibrary(f.name, fromLibrary ? null : origBuf);
       } else if (mark === MARK.XTG || mark === MARK.XTH) {
         singleImage = new XTGH_Image(buf);
         xtc = null;
@@ -940,7 +933,7 @@
     library.classList.add('on');
     closeSheet();
     hideChrome();
-    xtc = null; singleImage = null; bookKey = null; currentFileHandle = null;
+    xtc = null; singleImage = null; bookKey = null;
     renderLibrary();
   }
 
@@ -1359,6 +1352,10 @@
   }
 
   // ============ Init: show the library on start ============
+  $('libContinue').addEventListener('click', () => {
+    const id = $('libContinue').dataset.id;
+    if (id) reopenBook(id);
+  });
   library.classList.add('on');
   renderLibrary();
   // persist accumulated read time when leaving/hiding the page

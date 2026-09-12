@@ -1,10 +1,11 @@
 // XTC Reader — offline cache with auto-update
-const CACHE = 'xtc-reader-v14';
+const CACHE = 'xtc-reader-v15';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
   './LexendDeca-Bold.ttf',
+  './pattern.png',
   './icon-96.png',
   './icon-192.png',
   './icon-512.png',

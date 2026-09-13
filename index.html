@@ -120,8 +120,8 @@
     text-align: center; letter-spacing: 0.01em;
   }
   .thumb .name {
-    width: 98%;
-    font-size: 1.16rem; color: #000; text-align: center;
+    width: 100%;
+    font-size: 0.72rem; color: #000; text-align: center;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
@@ -146,11 +146,11 @@
   #contThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
   #contInfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
   #contTitle {
-    font-size: 1.3rem; font-weight: 700; color: #000;
+    font-size: 0.95rem; font-weight: 700; color: #000;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   #contAuthor {
-    font-size: 1.1rem; font-weight: 400; color: #000;
+    font-size: 0.82rem; font-weight: 400; color: #000;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   #contStats {
@@ -345,6 +345,7 @@
           <path d="M2473 4289c-482,0 -964,2 -1446,0 -631,-3 -517,-379 -517,-929l0 -2175c0,-209 -36,-505 88,-630 121,-122 433,-93 640,-93 239,0 479,-2 718,0 613,5 517,531 517,934 0,964 0,1929 0,2893zm486 0c0,-961 0,-1922 0,-2882 0,-154 -24,-580 32,-696 75,-157 232,-244 475,-244 239,-1 478,-5 718,-5 204,0 509,-27 629,93 124,125 89,431 89,641l0 2153c0,579 104,934 -507,940 -478,5 -958,0 -1436,0zm-264 -4054c-242,-240 -658,-185 -1056,-185 -233,0 -1026,-14 -1199,31 -387,102 -342,465 -342,882l0 3073c1,195 67,336 164,448 250,286 527,238 987,238 408,0 801,0 1209,0 0,499 -50,633 258,633 306,0 253,-136 253,-633 408,0 806,0 1215,0 476,0 718,44 969,-255 94,-111 150,-273 150,-463l0 -3062c0,-420 39,-770 -359,-865 -158,-38 -418,-32 -592,-32 -332,0 -925,-2 -1224,11 -255,12 -369,150 -433,179z"/>
         </svg>
         <span class="libTitle">XTC-Reader</span>
+        <span id="dbgDpr" style="font-size:0.6rem;color:#000;margin-left:8px;font-weight:400;"></span>
       </span>
       <button id="libOpenBtn" title="Открыть файл">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
@@ -1371,6 +1372,13 @@
   }
 
   // ============ Init: show the library on start ============
+  // TEMP debug: show device pixel metrics
+  try {
+    const d = $('dbgDpr');
+    if (d) d.textContent = 'DPR=' + window.devicePixelRatio +
+      ' scr=' + screen.width + '×' + screen.height +
+      ' win=' + window.innerWidth + '×' + window.innerHeight;
+  } catch (e) {}
   $('libContinue').addEventListener('click', () => {
     const id = $('libContinue').dataset.id;
     if (id) reopenBook(id);

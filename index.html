@@ -800,10 +800,11 @@
     return m;
   })();
 
-  function makeThumb() {
-    if (!xtc) return null;
+  function makeThumb(book) {
+    book = book || xtc;
+    if (!book) return null;
     try {
-      const img = xtc.getPageImage(0);
+      const img = book.getPageImage(0);
       const { width, height, imageData } = img.getImageData();
       const tw = 120, th = Math.round(tw * height / width);
       // downscale first (smooth) to thumbnail size
@@ -880,6 +881,32 @@
   }
 
   function truncName(s) { return s; } // CSS ellipsis handles it
+
+  // One-time migration: regenerate thumbnails for books already on the shelf,
+  // using their stored file bytes, so old (non-dithered) covers get the new look.
+  const THUMB_MIGRATION = 'xtcthumbmig1';
+  async function migrateThumbs() {
+    try {
+      if (localStorage.getItem(THUMB_MIGRATION)) return;
+      const list = loadLib();
+      let changed = false;
+      for (const b of list) {
+        try {
+          const buf = await idbGet(b.id);
+          if (!buf) continue;                    // no stored file — keep old thumb
+          let ab = buf, mark = new DataView(ab).getUint32(0, LE);
+          if (mark === MARK.XTZ4) { ab = decodeXTZ4(ab); mark = new DataView(ab).getUint32(0, LE); }
+          if (mark !== MARK.XTC && mark !== MARK.XTCH) continue;
+          const book = new XTC_File(ab);
+          const t = makeThumb(book);
+          if (t) { b.thumb = t; changed = true; }
+        } catch (e) { /* skip this book */ }
+      }
+      if (changed) saveLib(list);
+      localStorage.setItem(THUMB_MIGRATION, '1');
+      if (changed) renderLibrary();
+    } catch (e) {}
+  }
 
   function renderLibrary() {
     const list = loadLib();
@@ -1470,6 +1497,7 @@
   });
   library.classList.add('on');
   renderLibrary();
+  migrateThumbs();   // one-time: refresh old thumbnails with the new dithered look
   // persist accumulated read time when leaving/hiding the page
   document.addEventListener('visibilitychange', () => { if (document.hidden) addReadGap(); });
   window.addEventListener('pagehide', addReadGap);

@@ -20,6 +20,13 @@
   }
   @font-face {
     font-family: 'Journal Sans New';
+    src: url('JournalSansNewI.otf') format('opentype');
+    font-weight: 400;
+    font-style: italic;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'Journal Sans New';
     src: url('JournalSansNewB.otf') format('opentype');
     font-weight: 700;
     font-style: normal;
@@ -58,24 +65,37 @@
 
   /* Top bar */
   #libTop {
-    flex: 0 0 auto;
-    display: flex; align-items: flex-end; justify-content: space-between;
-    padding: calc(var(--safe-top) + 14px) 18px 12px;
-    border-bottom: 2px solid #000;
+    flex: 0 0 auto; position: relative;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: calc(var(--safe-top) + 14px) 14px 14px;
   }
-  #libTop .libBrand { display: flex; align-items: flex-end; gap: 9px; }
+  #libTop::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4px;
+    background: url('pattern.png') repeat; image-rendering: pixelated;
+  }
+  /* brand plate: grey rounded rectangle textured with the pattern; text/logo white */
+  #libTop .libBrand {
+    display: inline-flex; align-items: center; gap: 9px;
+    background-color: #808080;
+    background-image: url('pattern.png');
+    background-repeat: repeat;
+    image-rendering: pixelated;
+    border-radius: 12px;
+    padding: 7px 14px;
+    color: #fff;
+  }
   #libTop .brandIcon {
-    /* sized and nudged to sit flush with the title text */
     height: 1.26rem; width: auto; display: block;
-    flex: 0 0 auto; transform: translateY(-0.17rem);
+    flex: 0 0 auto; color: #fff;
   }
-  #libTop .libTitle { font-family: 'Journal Sans New', system-ui, sans-serif; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; color: #000; line-height: 1; }
+  #libTop .libTitle { font-family: 'Journal Sans New', system-ui, sans-serif; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; color: #fff; line-height: 1; }
   #libOpenBtn {
     appearance: none; background: none; color: #000; border: none; padding: 0;
     width: 42px; height: 42px; display: grid; place-items: center; cursor: pointer;
+    flex: 0 0 auto;
   }
   #libOpenBtn:active { opacity: 0.5; }
-  #libOpenBtn svg { width: 40px; height: 40px; display: block; transform: translateY(3px); }
+  #libOpenBtn svg { width: 40px; height: 40px; display: block; }
 
   /* Empty state: centred book icon */
   #libEmpty {
@@ -108,7 +128,7 @@
     border: 2px solid #000; background: #fff;
     overflow: hidden;
   }
-  .thumb .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb .cover img { width: 100%; height: 100%; object-fit: cover; display: block; image-rendering: pixelated; }
   .thumb:active .cover { background: #eee; }
   /* corner badge: fixed width to hold "100%" + side padding, centred text */
   .thumb .badge {
@@ -116,12 +136,12 @@
     width: 46px; padding: 3px 0;
     background: #000; color: #fff;
     font-family: 'Journal Sans New', system-ui, sans-serif;
-    font-size: 0.62rem; font-weight: 700;
+    font-size: 0.93rem; font-weight: 700;
     text-align: center; letter-spacing: 0.01em;
   }
   .thumb .name {
     width: 100%;
-    font-size: 0.72rem; color: #000; text-align: center;
+    font-size: 1.08rem; color: #000; text-align: center;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
@@ -131,8 +151,11 @@
     display: none;
     align-items: center; gap: 16px;
     padding: 18px;
-    border-top: 2px solid #000;
     position: relative;
+  }
+  #libContinue::before {
+    content: ''; position: absolute; left: 0; right: 0; top: 0; height: 4px;
+    background: url('pattern.png') repeat; image-rendering: pixelated;
   }
   #library.has-books #libContinue { display: flex; }
   /* thumbnail overhangs the divider line for a bit of dynamism */
@@ -143,23 +166,23 @@
     margin-top: -34px;                 /* pull up above the top border */
     overflow: hidden;
   }
-  #contThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #contThumb img { width: 100%; height: 100%; object-fit: cover; display: block; image-rendering: pixelated; }
   #contInfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
   #contTitle {
-    font-size: 0.95rem; font-weight: 700; color: #000;
+    font-size: 1.42rem; font-weight: 700; color: #000;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   #contAuthor {
-    font-size: 0.82rem; font-weight: 400; color: #000;
+    font-size: 1.23rem; font-weight: 400; font-style: italic; color: #000;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   #contStats {
     display: flex; justify-content: space-between;
-    font-size: 0.78rem; color: #000; margin-top: 4px;
+    font-size: 1.17rem; color: #000; margin-top: 4px;
     font-variant-numeric: tabular-nums;
   }
-  #contBar { height: 6px; background: #ccc; margin-top: 6px; }
-  #contBarFill { height: 100%; background: #000; width: 0%; }
+  #contBar { height: 12px; border-radius: 6px; overflow: hidden; background: #ccc; margin-top: 6px; }
+  #contBarFill { height: 100%; width: 0%; background: url('pattern.png') repeat #000; image-rendering: pixelated; }
 
   /* ---------- Reader ---------- */
   #reader { flex: 1; position: relative; display: none; flex-direction: column; }
@@ -245,20 +268,20 @@
   }
   #sheet.show { display: flex; }
   #sheet .grip { display: none; }
-  #sheet h2 { margin: 12px 20px 10px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: #000; font-weight: 700; }
+  #sheet h2 { margin: 12px 20px 10px; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.06em; color: #000; font-weight: 700; }
   #chapters { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 8px 8px; }
   .chapter {
     padding: 14px 16px;
     border-bottom: 1px solid #000;
     display: flex; align-items: baseline; gap: 12px;
-    cursor: pointer; font-size: 0.98rem; color: #000;
+    cursor: pointer; font-size: 1.4rem; color: #000;
   }
   .chapter:active { background: #000; color: #fff; }
   .chapter.active { font-weight: 700; text-decoration: underline; }
   .chapter .pg { margin-left: auto; font-size: 0.78rem; color: #000; font-variant-numeric: tabular-nums; }
 
   /* ---------- Meta ---------- */
-  #metaBody { padding: 4px 20px 20px; color: #000; font-size: 0.92rem; line-height: 1.6; }
+  #metaBody { padding: 4px 20px 20px; color: #000; font-size: 1.15rem; line-height: 1.6; }
   #metaBody strong { color: #000; }
   #metaBody .kv { display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; border-bottom: 1px solid #000; }
   #metaBody .kv:last-child { border-bottom: 0; }
@@ -347,7 +370,7 @@
         <span class="libTitle">XTC-Reader</span>
       </span>
       <button id="libOpenBtn" title="Открыть файл">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg>
       </button>
     </div>
 
@@ -765,18 +788,43 @@
   }
 
   // Render a small cover thumbnail (page 0) as a compact JPEG data URL.
+  // 8×8 Bayer ordered-dither matrix (values 0..63)
+  const BAYER8 = (function () {
+    const m = [
+      [0,32,8,40,2,34,10,42],[48,16,56,24,50,18,58,26],
+      [12,44,4,36,14,46,6,38],[60,28,52,20,62,30,54,22],
+      [3,35,11,43,1,33,9,41],[51,19,59,27,49,17,57,25],
+      [15,47,7,39,13,45,5,37],[63,31,55,23,61,29,53,21]
+    ];
+    return m;
+  })();
+
   function makeThumb() {
     if (!xtc) return null;
     try {
       const img = xtc.getPageImage(0);
       const { width, height, imageData } = img.getImageData();
-      const tw = 120, th = Math.round(tw * height / width);
+      const tw = 160, th = Math.round(tw * height / width);
+      // downscale first (smooth) to thumbnail size
       const tc = document.createElement('canvas'); tc.width = width; tc.height = height;
       tc.getContext('2d').putImageData(new ImageData(imageData, width, height), 0, 0);
       const out = document.createElement('canvas'); out.width = tw; out.height = th;
       const octx = out.getContext('2d'); octx.imageSmoothingEnabled = true; octx.imageSmoothingQuality = 'high';
       octx.drawImage(tc, 0, 0, tw, th);
-      return out.toDataURL('image/jpeg', 0.6);
+      // ordered (Bayer 8×8) dither to pure black/white
+      const id = octx.getImageData(0, 0, tw, th);
+      const d = id.data;
+      for (let y = 0; y < th; y++) {
+        for (let x = 0; x < tw; x++) {
+          const i = (y * tw + x) * 4;
+          const lum = d[i]; // grayscale: r=g=b
+          const threshold = (BAYER8[y & 7][x & 7] + 0.5) / 64 * 255;
+          const v = lum > threshold ? 255 : 0;
+          d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255;
+        }
+      }
+      octx.putImageData(id, 0, 0);
+      return out.toDataURL('image/png'); // PNG keeps the dither crisp
     } catch (e) { return null; }
   }
 
@@ -799,13 +847,17 @@
       readMs: existing ? (existing.readMs || 0) : 0,
       stored: existing ? existing.stored : false,
     };
-    list = list.filter(b => b.id !== id);
-    list.unshift(entry);
-    // books pushed past MAX_BOOKS drop off the shelf AND out of storage
-    const dropped = list.slice(MAX_BOOKS);
-    for (const d of dropped) { await idbDelete(d.id); }
-    list = list.slice(0, MAX_BOOKS);
-    // store the original file bytes (once) so tapping the thumbnail can reopen it
+    if (existing) {
+      // already on the shelf — update in place, DON'T reorder the list
+      const i = list.findIndex(b => b.id === id);
+      list[i] = entry;
+    } else {
+      // new file — goes to the front; overflow drops off shelf and storage
+      list.unshift(entry);
+      const dropped = list.slice(MAX_BOOKS);
+      for (const d of dropped) { await idbDelete(d.id); }
+      list = list.slice(0, MAX_BOOKS);
+    }
     if (origBuf && !entry.stored) {
       const ok = await idbPut(id, origBuf);
       if (ok) entry.stored = true;
@@ -848,9 +900,12 @@
       el.addEventListener('click', () => reopenBook(b.id));
       shelf.appendChild(el);
     });
-    // continue block = newest book
-    if (list.length) {
-      const b = list[0];
+    // continue block = last opened book (falls back to newest); order is untouched
+    let cont = null;
+    try { const lid = localStorage.getItem('xtclast'); if (lid) cont = list.find(b => b.id === lid); } catch (e) {}
+    if (!cont) cont = list[0];
+    if (cont) {
+      const b = cont;
       $('contThumb').innerHTML = b.thumb ? '<img src="' + b.thumb + '" alt="">' : '';
       $('contTitle').textContent = b.name;
       $('contAuthor').textContent = b.author || '';
@@ -959,14 +1014,16 @@
   function setupBook(fallbackName) {
     library.classList.remove('on');
     reader.classList.add('on');
-    sideMargin = loadMargin();
+    bookKey = posKey(fallbackName);
+    try { localStorage.setItem('xtclast', fallbackName); } catch (e) {}
+    sideMargin = loadMargin();       // per-book (needs bookKey set)
+    smoothMode = loadSmooth();       // per-book
     updateSmoothLabel();
     invertBtn.classList.toggle('active', inverted);
     app.classList.toggle('invert', inverted);
     const m = xtc.metadata;
     buildChapters();
     buildMeta(fallbackName);
-    bookKey = posKey(fallbackName);
     const startPage = loadPosition(fallbackName, xtc.indexTable.length - 1);
     renderPage(startPage);
     startReadTimer();
@@ -1171,11 +1228,27 @@
   // ============ Margins (side padding) ============
   const marginDialog = $('marginDialog'), marginValue = $('marginValue');
   let pendingMargin = 0;
+  function curBookId() { return bookKey ? bookKey.replace(/^xtcpos:/, '') : null; }
   function loadMargin() {
-    try { const v = parseInt(localStorage.getItem('xtcmargin'), 10); return MARGIN_STEPS.includes(v) ? v : 0; }
-    catch (e) { return 0; }
+    try {
+      const id = curBookId();
+      const v = parseInt(localStorage.getItem(id ? ('xtcmargin:' + id) : 'xtcmargin'), 10);
+      return MARGIN_STEPS.includes(v) ? v : 0;
+    } catch (e) { return 0; }
   }
-  function saveMargin() { try { localStorage.setItem('xtcmargin', String(sideMargin)); } catch (e) {} }
+  function saveMargin() {
+    try { const id = curBookId(); localStorage.setItem(id ? ('xtcmargin:' + id) : 'xtcmargin', String(sideMargin)); } catch (e) {}
+  }
+  function loadSmooth() {
+    try {
+      const id = curBookId();
+      const v = localStorage.getItem(id ? ('xtcsmooth:' + id) : 'xtcsmooth');
+      return (v === 'bil' || v === 'lan' || v === 'off') ? v : 'bil';
+    } catch (e) { return 'bil'; }
+  }
+  function saveSmooth() {
+    try { const id = curBookId(); localStorage.setItem(id ? ('xtcsmooth:' + id) : 'xtcsmooth', smoothMode); } catch (e) {}
+  }
   function refreshMarginDialog() {
     marginValue.textContent = String(pendingMargin);
     $('marginDown').disabled = (pendingMargin <= MARGIN_STEPS[0]);
@@ -1223,6 +1296,7 @@
   // ============ Smoothing (HQ downscale) ============
   function cycleSmooth() {
     smoothMode = smoothMode === 'bil' ? 'lan' : smoothMode === 'lan' ? 'off' : 'bil';
+    saveSmooth();
     updateSmoothLabel();
     paint();
     showToast('Сглаживание: ' + SMOOTH_LABEL[smoothMode]);
@@ -1371,16 +1445,24 @@
   }
 
   // ============ Init: show the library on start ============
-  // Snap the checker pattern to physical pixels: the 4px tile must map to a whole
-  // number of device pixels, otherwise fractional DPR (e.g. 2.1875) makes cells
-  // uneven. background-size = tile / DPR gives 1 image pixel per 1 device pixel.
-  try {
+  // Snap the pattern to physical pixels. Read the PNG's natural tile size (works
+  // for 4×4, 6×6, whatever) and set background-size = tile / DPR so one image
+  // pixel maps to one device pixel regardless of fractional DPR (e.g. 2.1875).
+  (function () {
     const dpr = window.devicePixelRatio || 1;
-    const sz = (4 / dpr).toFixed(4) + 'px';
-    const st = document.createElement('style');
-    st.textContent = '#gotoDialog,#marginDialog,#scrim{background-size:' + sz + ' ' + sz + ' !important;}';
-    document.head.appendChild(st);
-  } catch (e) {}
+    const img = new Image();
+    img.onload = () => applyPatternSize(img.naturalWidth || 4, dpr);
+    img.onerror = () => applyPatternSize(4, dpr);
+    img.src = 'pattern.png';
+    function applyPatternSize(tile, dpr) {
+      const sz = (tile / dpr).toFixed(4) + 'px';
+      const st = document.createElement('style');
+      // full-tile background for panels; the pattern strips/plate/progress inherit it too
+      st.textContent =
+        '#gotoDialog,#marginDialog,#scrim,.patFill,#libTop .libBrand,#libTop::after,#libContinue::before,#contBarFill{background-size:' + sz + ' ' + sz + ' !important;}';
+      document.head.appendChild(st);
+    }
+  })();
   $('libContinue').addEventListener('click', () => {
     const id = $('libContinue').dataset.id;
     if (id) reopenBook(id);

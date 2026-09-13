@@ -89,7 +89,7 @@
     height: 1.26rem; width: auto; display: block;
     flex: 0 0 auto; color: #fff;
   }
-  #libTop .libTitle { font-family: 'Journal Sans New', system-ui, sans-serif; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; color: #fff; line-height: 1; position: relative; top: 4px; }
+  #libTop .libTitle { font-family: 'Journal Sans New', system-ui, sans-serif; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; color: #fff; line-height: 1; position: relative; top: 2px; }
   #libOpenBtn {
     appearance: none; background: none; color: #000; border: none; padding: 0;
     width: 42px; height: 42px; display: grid; place-items: center; cursor: pointer;
@@ -168,7 +168,7 @@
     overflow: hidden;
   }
   #contThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  #contInfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  #contInfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0; position: relative; top: -3px; }
   #contTitle {
     font-size: 1.42rem; font-weight: 700; color: #000;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -179,7 +179,7 @@
   }
   #contStats {
     display: flex; justify-content: space-between;
-    font-size: 1.17rem; color: #000; margin-top: 8px;
+    font-size: 1.17rem; color: #000; margin-top: 5px;
     font-variant-numeric: tabular-nums;
   }
   #contBar { height: 6px; border-radius: 3px; overflow: hidden; background: #ccc; margin-top: 4px; }
@@ -268,9 +268,10 @@
     padding-bottom: var(--safe-bottom);
   }
   #sheet.show { display: flex; }
+  #sheetChapters, #sheetMeta { display: flex; flex-direction: column; min-height: 0; flex: 1; }
   #sheet .grip { display: none; }
-  #sheet h2 { margin: 12px 20px 10px; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.06em; color: #000; font-weight: 700; }
-  #chapters { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 8px 8px; }
+  #sheet h2 { margin: 12px 20px 10px; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.06em; color: #000; font-weight: 700; flex: 0 0 auto; }
+  #chapters { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 8px 8px; }
   .chapter {
     padding: 14px 16px;
     border-bottom: 1px solid #000;
@@ -1330,8 +1331,8 @@
   scrim.addEventListener('click', closeSheet);
 
   function openSheet(which) {
-    sheetChapters.style.display = which === 'chapters' ? 'block' : 'none';
-    sheetMeta.style.display = which === 'meta' ? 'block' : 'none';
+    sheetChapters.style.display = which === 'chapters' ? 'flex' : 'none';
+    sheetMeta.style.display = which === 'meta' ? 'flex' : 'none';
     scrim.classList.add('show');
     sheet.classList.add('show');
   }

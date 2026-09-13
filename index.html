@@ -533,7 +533,7 @@
     </div>
   </div>
 
-  <input type="file" id="fileInput" accept=".xtc,.xtg,.xth,.xtch,.xtcz,.xtz4" />
+  <input type="file" id="fileInput" accept=".xtc,.xtg,.xth,.xtch,.xtcz,.xtz4,.cbz" />
 </div>
 
 <script>
@@ -757,6 +757,71 @@
     }
   }
 
+  // ============ CBZ (ZIP with images) — manga support ============
+  // Minimal ZIP reader using the browser's native DecompressionStream (no libs).
+  async function readZipEntries(arrayBuffer) {
+    const dv = new DataView(arrayBuffer), u8 = new Uint8Array(arrayBuffer);
+    let eocd = -1;
+    for (let i = u8.length - 22; i >= 0; i--) { if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; } }
+    if (eocd < 0) throw new Error('не ZIP-архив');
+    const cdCount = dv.getUint16(eocd + 10, true);
+    const cdOffset = dv.getUint32(eocd + 16, true);
+    const entries = [];
+    let p = cdOffset;
+    for (let n = 0; n < cdCount; n++) {
+      if (dv.getUint32(p, true) !== 0x02014b50) break;
+      const method = dv.getUint16(p + 10, true);
+      const compSize = dv.getUint32(p + 20, true);
+      const nameLen = dv.getUint16(p + 28, true);
+      const extraLen = dv.getUint16(p + 30, true);
+      const commentLen = dv.getUint16(p + 32, true);
+      const localOffset = dv.getUint32(p + 42, true);
+      const name = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nameLen));
+      entries.push({ name, method, compSize, localOffset });
+      p += 46 + nameLen + extraLen + commentLen;
+    }
+    return { dv, u8, entries };
+  }
+  async function extractZipEntry(zip, entry) {
+    const { dv, u8 } = zip, lo = entry.localOffset;
+    if (dv.getUint32(lo, true) !== 0x04034b50) throw new Error('битый ZIP');
+    const nameLen = dv.getUint16(lo + 26, true);
+    const extraLen = dv.getUint16(lo + 28, true);
+    const dataStart = lo + 30 + nameLen + extraLen;
+    const comp = u8.subarray(dataStart, dataStart + entry.compSize);
+    if (entry.method === 0) return comp.slice();
+    if (entry.method === 8) {
+      const ds = new DecompressionStream('deflate-raw');
+      const stream = new Blob([comp]).stream().pipeThrough(ds);
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+    throw new Error('метод сжатия ' + entry.method + ' не поддержан');
+  }
+
+  // A CBZ book: list of image entries; getPageImage(i) decodes to ImageData on demand.
+  class CBZ_Book {
+    constructor(zip, imgEntries, title) {
+      this.zip = zip;
+      this.pages = imgEntries;                 // sorted image entries
+      this.indexTable = imgEntries;            // for length compatibility with XTC
+      this.metadata = { title: title || 'Манга', author: '' };
+      this.rtl = true;                         // manga reads right-to-left
+    }
+    // async: returns { getImageData() } with decoded RGBA
+    async getPageImageAsync(i) {
+      if (i < 0 || i >= this.pages.length) return null;
+      const bytes = await extractZipEntry(this.zip, this.pages[i]);
+      const blob = new Blob([bytes]);
+      const bmp = await createImageBitmap(blob);
+      const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+      const cx = c.getContext('2d'); cx.drawImage(bmp, 0, 0); bmp.close && bmp.close();
+      const idata = cx.getImageData(0, 0, c.width, c.height);
+      return { getImageData: () => ({ width: c.width, height: c.height, imageData: idata.data }) };
+    }
+  }
+
+  function isImageName(n) { return /\.(jpe?g|png|gif|webp|bmp)$/i.test(n) && !/^__MACOSX\//.test(n); }
+
   // ============ App state & DOM ============
   const $ = id => document.getElementById(id);
   const library = $('library'), reader = $('reader');
@@ -776,6 +841,7 @@
 
   let xtc = null;          // book
   let singleImage = null;  // standalone image
+  let cbz = null;          // CBZ comic book (manga)
   let page = 0;
   let bookKey = null;      // localStorage key for current book's reading position
 
@@ -1025,6 +1091,18 @@
         singleImage = new XTGH_Image(buf);
         xtc = null;
         setupImage(f.name);
+      } else if ((mark & 0xffff) === 0x4b50 || /\.cbz$/i.test(f.name)) {
+        // ZIP signature "PK" (0x504b...) or .cbz extension → comic archive
+        if (typeof DecompressionStream === 'undefined') {
+          throw new Error('браузер не поддерживает распаковку (нет DecompressionStream)');
+        }
+        const zip = await readZipEntries(origBuf);
+        const imgs = zip.entries.filter(en => isImageName(en.name))
+          .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+        if (!imgs.length) throw new Error('в архиве нет изображений');
+        cbz = new CBZ_Book(zip, imgs, f.name.replace(/\.[^.]+$/, ''));
+        xtc = null; singleImage = null; page = 0;
+        await setupCBZ(f.name);
       } else {
         throw new Error('Неизвестный формат файла');
       }
@@ -1040,7 +1118,8 @@
     library.classList.add('on');
     closeSheet();
     hideChrome();
-    xtc = null; singleImage = null; bookKey = null;
+    xtc = null; singleImage = null; cbz = null; bookKey = null;
+    if ($('chapBtn')) $('chapBtn').style.display = '';   // restore chapters button
     renderLibrary();
   }
 
@@ -1070,6 +1149,40 @@
     invertBtn.classList.toggle('active', inverted);
     app.classList.toggle('invert', inverted);
     renderCurrentImage(singleImage);
+  }
+
+  async function setupCBZ(fallbackName) {
+    library.classList.remove('on');
+    reader.classList.add('on');
+    bookKey = posKey(fallbackName);
+    try { localStorage.setItem('xtclast', fallbackName); } catch (e) {}
+    sideMargin = loadMargin();
+    smoothMode = loadSmooth();
+    updateSmoothLabel();
+    invertBtn.classList.toggle('active', inverted);
+    app.classList.toggle('invert', inverted);
+    if ($('chapBtn')) $('chapBtn').style.display = 'none';  // no chapters for manga
+    const startPage = loadPosition(fallbackName, cbz.pages.length - 1);
+    await renderCbzPage(startPage);
+    startReadTimer();
+  }
+
+  let cbzBusy = false;
+  async function renderCbzPage(idx) {
+    if (!cbz || cbzBusy) return;
+    idx = Math.max(0, Math.min(idx, cbz.pages.length - 1));
+    cbzBusy = true;
+    try {
+      const img = await cbz.getPageImageAsync(idx);
+      if (img) {
+        page = idx;
+        renderCurrentImage(img);
+        pageReadout.textContent = `Страница ${idx + 1} из ${cbz.pages.length}`;
+        savePosition();
+        addReadGap();
+      }
+    } catch (e) { showToast('Ошибка страницы: ' + e.message); }
+    cbzBusy = false;
   }
 
   // ============ Rendering ============
@@ -1346,18 +1459,28 @@
   function toggleChrome() {}
 
   // ============ Tap zones ============
+  // Unified page turn for both XTC and CBZ. delta +1 = forward in reading order.
+  function turnPage(delta) {
+    if (cbz) { renderCbzPage(page + delta); }
+    else if (xtc) { renderPage(page + delta); }
+  }
+
   $('zones').addEventListener('click', e => {
     const act = e.target.closest('.z')?.dataset.act;
-    if (act === 'prev') { renderPage(page - 1); }
-    else if (act === 'next') { renderPage(page + 1); }
-    // middle zone: no-op (bar is always visible)
+    // manga is right-to-left: right zone goes back, left zone goes forward
+    const rtl = !!(cbz && cbz.rtl);
+    if (act === 'prev') { turnPage(rtl ? +1 : -1); }
+    else if (act === 'next') { turnPage(rtl ? -1 : +1); }
+    // middle zone: no-op
   });
 
   // ============ Go to page ============
   const gotoDialog = $('gotoDialog'), gotoInput = $('gotoInput'), gotoRange = $('gotoRange');
+  function pageCount() { return cbz ? cbz.pages.length : (xtc ? xtc.indexTable.length : 0); }
+  function gotoPageUniversal(n) { if (cbz) renderCbzPage(n); else if (xtc) renderPage(n); }
   function openGoto() {
-    if (!xtc) return;
-    const total = xtc.indexTable.length;
+    if (!xtc && !cbz) return;
+    const total = pageCount();
     gotoRange.textContent = `1 – ${total}`;
     gotoInput.value = String(page + 1);
     gotoInput.max = String(total);
@@ -1366,11 +1489,11 @@
   }
   function closeGoto() { gotoDialog.classList.remove('show'); }
   function confirmGoto() {
-    const total = xtc ? xtc.indexTable.length : 0;
+    const total = pageCount();
     let n = parseInt(gotoInput.value, 10);
     if (Number.isFinite(n)) {
-      n = Math.max(1, Math.min(n, total)) - 1; // 1-based input → 0-based index
-      renderPage(n);
+      n = Math.max(1, Math.min(n, total)) - 1;
+      gotoPageUniversal(n);
     }
     closeGoto();
   }
@@ -1443,8 +1566,9 @@
   // ============ Keyboard (nice on desktop / with keyboard) ============
   document.addEventListener('keydown', e => {
     if (!reader.classList.contains('on')) return;
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') renderPage(page - 1);
-    else if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') renderPage(page + 1);
+    const rtl = !!(cbz && cbz.rtl);
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') turnPage(rtl ? +1 : -1);
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') turnPage(rtl ? -1 : +1);
     else if (e.key === 'Escape') closeSheet();
   });
 

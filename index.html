@@ -97,6 +97,38 @@
   }
   #libOpenBtn:active { opacity: 0.5; }
   #libOpenBtn svg { width: 40px; height: 40px; display: block; }
+  #libTop .libTools { display: inline-flex; align-items: center; gap: 10px; }
+  #libSettingsBtn {
+    appearance: none; background: none; color: #000; border: none; padding: 0;
+    width: 40px; height: 40px; display: grid; place-items: center; cursor: pointer;
+    flex: 0 0 auto;
+  }
+  #libSettingsBtn:active { opacity: 0.5; }
+  #libSettingsBtn svg { width: 34px; height: 34px; display: block; }
+
+  /* Settings dialog: centred, 90% × 80%, pattern behind */
+  #settingsDialog {
+    position: absolute; inset: 0; z-index: 55;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.7);
+    background-image: url('pattern.png'); background-repeat: repeat; image-rendering: pixelated;
+  }
+  #settingsDialog.show { display: flex; }
+  #settingsBox {
+    width: 90%; height: 80%;
+    background: #fff; border: 2px solid #000; border-radius: 12px;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  #settingsHead {
+    flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 2px solid #000;
+    font-family: 'Journal Sans New', system-ui, sans-serif; font-weight: 700; font-size: 1.2rem;
+  }
+  #settingsClose {
+    appearance: none; background: none; border: none; font-size: 1.3rem; cursor: pointer;
+    color: #000; line-height: 1; padding: 0 4px;
+  }
+  #settingsBody { flex: 1; min-height: 0; overflow-y: auto; padding: 18px; }
 
   /* Empty state: centred book icon */
   #libEmpty {
@@ -136,6 +168,7 @@
     position: absolute; top: 0; right: 0;
     width: 46px; padding: 3px 0;
     background: #000; color: #fff;
+    border-radius: 0 0 0 8px;
     font-family: 'Journal Sans New', system-ui, sans-serif;
     font-size: 0.93rem; font-weight: 700;
     text-align: center; letter-spacing: 0.01em;
@@ -220,11 +253,14 @@
 
   /* ---------- Bottom control bar (always visible) ---------- */
   #bottombar {
-    flex: 0 0 auto; z-index: 20;
-    border-top: 2px solid #000;
+    flex: 0 0 auto; z-index: 20; position: relative;
     background: #fff;
     padding: 8px 10px calc(var(--safe-bottom) + 8px);
     display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  #bottombar::before {
+    content: ''; position: absolute; left: 0; right: 0; top: 0; height: 4px;
+    background: url('pattern.png') repeat; image-rendering: pixelated;
   }
   #bottombar .title {
     flex: 1; min-width: 0;
@@ -371,9 +407,14 @@
         </svg>
         <span class="libTitle">XTC-Reader</span>
       </span>
-      <button id="libOpenBtn" title="Открыть файл">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg>
-      </button>
+      <span class="libTools">
+        <button id="libOpenBtn" title="Открыть файл">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg>
+        </button>
+        <button id="libSettingsBtn" title="Настройки">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </span>
     </div>
 
     <!-- Empty state: centred book icon, hidden once a book exists -->
@@ -479,6 +520,17 @@
     </div>
 
     <div id="toast"></div>
+  </div>
+
+  <!-- Settings dialog (empty for now) — app-level so it works on the library screen -->
+  <div id="settingsDialog">
+    <div id="settingsBox">
+      <div id="settingsHead">
+        <span>Настройки</span>
+        <button id="settingsClose" title="Закрыть">✕</button>
+      </div>
+      <div id="settingsBody"></div>
+    </div>
   </div>
 
   <input type="file" id="fileInput" accept=".xtc,.xtg,.xth,.xtch,.xtcz,.xtz4" />
@@ -937,6 +989,9 @@
 
   // ============ Open file ============
   $('libOpenBtn').addEventListener('click', openFilePicker);
+  $('libSettingsBtn').addEventListener('click', () => $('settingsDialog').classList.add('show'));
+  $('settingsClose').addEventListener('click', () => $('settingsDialog').classList.remove('show'));
+  $('settingsDialog').addEventListener('click', e => { if (e.target === $('settingsDialog')) $('settingsDialog').classList.remove('show'); });
   $('homeBtn').addEventListener('click', goHome);
   marginBtn.addEventListener('click', openMargin);
   invertBtn.addEventListener('click', toggleInvert);
@@ -1436,8 +1491,8 @@
       const sz = (tile / dpr).toFixed(4) + 'px';
       const st = document.createElement('style');
       st.textContent =
-        '#gotoDialog,#marginDialog,#scrim,.patFill,#libTop .libBrand,#libTop::after,#libContinue::before,#contBarFill{background-size:' + sz + ' ' + sz + ' !important;}' +
-        '#libTop::after,#libContinue::before{height:' + sz + ' !important;}';
+        '#gotoDialog,#marginDialog,#scrim,#settingsDialog,.patFill,#libTop .libBrand,#libTop::after,#libContinue::before,#contBarFill,#bottombar::before{background-size:' + sz + ' ' + sz + ' !important;}' +
+        '#libTop::after,#libContinue::before,#bottombar::before{height:' + sz + ' !important;}';
       document.head.appendChild(st);
     }
   })();

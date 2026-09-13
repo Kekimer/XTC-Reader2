@@ -67,7 +67,7 @@
   #libTop {
     flex: 0 0 auto; position: relative;
     display: flex; align-items: center; justify-content: space-between;
-    padding: calc(var(--safe-top) + 14px) 14px 14px;
+    padding: calc(var(--safe-top) + 14px) 14px 14px 0;
   }
   #libTop::after {
     content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4px;
@@ -80,15 +80,16 @@
     background-image: url('pattern.png');
     background-repeat: repeat;
     image-rendering: pixelated;
-    border-radius: 12px;
-    padding: 7px 14px;
+    border-radius: 0 18px 18px 0;
+    padding: 7px 16px 7px 16px;
+    margin-left: -2px;
     color: #fff;
   }
   #libTop .brandIcon {
     height: 1.26rem; width: auto; display: block;
     flex: 0 0 auto; color: #fff;
   }
-  #libTop .libTitle { font-family: 'Journal Sans New', system-ui, sans-serif; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; color: #fff; line-height: 1; }
+  #libTop .libTitle { font-family: 'Journal Sans New', system-ui, sans-serif; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; color: #fff; line-height: 1; position: relative; top: 4px; }
   #libOpenBtn {
     appearance: none; background: none; color: #000; border: none; padding: 0;
     width: 42px; height: 42px; display: grid; place-items: center; cursor: pointer;
@@ -160,14 +161,14 @@
   #library.has-books #libContinue { display: flex; }
   /* thumbnail overhangs the divider line for a bit of dynamism */
   #contThumb {
-    flex: 0 0 auto;
+    flex: 0 0 auto; position: relative; z-index: 2;
     width: 78px; aspect-ratio: 480 / 800;
     border: 2px solid #000; background: #fff;
     margin-top: -34px;                 /* pull up above the top border */
     overflow: hidden;
   }
   #contThumb img { width: 100%; height: 100%; object-fit: cover; display: block; image-rendering: pixelated; }
-  #contInfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  #contInfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
   #contTitle {
     font-size: 1.42rem; font-weight: 700; color: #000;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -178,10 +179,10 @@
   }
   #contStats {
     display: flex; justify-content: space-between;
-    font-size: 1.17rem; color: #000; margin-top: 4px;
+    font-size: 1.17rem; color: #000; margin-top: 8px;
     font-variant-numeric: tabular-nums;
   }
-  #contBar { height: 12px; border-radius: 6px; overflow: hidden; background: #ccc; margin-top: 6px; }
+  #contBar { height: 6px; border-radius: 3px; overflow: hidden; background: #ccc; margin-top: 4px; }
   #contBarFill { height: 100%; width: 0%; background: url('pattern.png') repeat #000; image-rendering: pixelated; }
 
   /* ---------- Reader ---------- */
@@ -804,7 +805,7 @@
     try {
       const img = xtc.getPageImage(0);
       const { width, height, imageData } = img.getImageData();
-      const tw = 160, th = Math.round(tw * height / width);
+      const tw = 120, th = Math.round(tw * height / width);
       // downscale first (smooth) to thumbnail size
       const tc = document.createElement('canvas'); tc.width = width; tc.height = height;
       tc.getContext('2d').putImageData(new ImageData(imageData, width, height), 0, 0);
@@ -1457,9 +1458,9 @@
     function applyPatternSize(tile, dpr) {
       const sz = (tile / dpr).toFixed(4) + 'px';
       const st = document.createElement('style');
-      // full-tile background for panels; the pattern strips/plate/progress inherit it too
       st.textContent =
-        '#gotoDialog,#marginDialog,#scrim,.patFill,#libTop .libBrand,#libTop::after,#libContinue::before,#contBarFill{background-size:' + sz + ' ' + sz + ' !important;}';
+        '#gotoDialog,#marginDialog,#scrim,.patFill,#libTop .libBrand,#libTop::after,#libContinue::before,#contBarFill{background-size:' + sz + ' ' + sz + ' !important;}' +
+        '#libTop::after,#libContinue::before{height:' + sz + ' !important;}';
       document.head.appendChild(st);
     }
   })();

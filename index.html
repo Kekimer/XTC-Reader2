@@ -76,7 +76,7 @@
   /* brand plate: grey rounded rectangle textured with the pattern; text/logo white */
   #libTop .libBrand {
     display: inline-flex; align-items: center; gap: 9px;
-    background-color: #a0a0a0;
+    background-color: #808080;
     background-image: url('pattern.png');
     background-repeat: repeat;
     image-rendering: pixelated;
@@ -235,8 +235,8 @@
     font-size: 1.17rem; color: #000; margin-top: 5px;
     font-variant-numeric: tabular-nums;
   }
-  #contBar { height: 6px; border-radius: 3px; overflow: hidden; background: #ccc; margin-top: 4px; }
-  #contBarFill { height: 100%; width: 0%; background-image: url('pattern.png') repeat #000; image-rendering: pixelated; }
+  #contBar { height: 6px; border-radius: 3px; overflow: hidden; background: url('pattern.png') repeat #fff; image-rendering: pixelated; margin-top: 4px; }
+  #contBarFill { height: 100%; width: 0%; background: #000; }
 
   /* ---------- Reader ---------- */
   #reader { flex: 1; position: relative; display: none; flex-direction: column; }
@@ -1649,23 +1649,33 @@
   }
 
   // ============ Init: show the library on start ============
-  // Snap the pattern to physical pixels. Read the PNG's natural tile size (works
-  // for 4×4, 6×6, whatever) and set background-size = tile / DPR so one image
-  // pixel maps to one device pixel regardless of fractional DPR (e.g. 2.1875).
+  // Snap each pattern to physical pixels independently. Two patterns of possibly
+  // different tile sizes: pattern.png (lines/plate/dialogs) and pattern-cover.png
+  // (overlay on covers). Read each PNG's natural size, set background-size = tile/DPR
+  // so one image pixel maps to one device pixel regardless of fractional DPR.
   (function () {
     const dpr = window.devicePixelRatio || 1;
-    const img = new Image();
-    img.onload = () => applyPatternSize(img.naturalWidth || 4, dpr);
-    img.onerror = () => applyPatternSize(4, dpr);
-    img.src = 'pattern.png';
-    function applyPatternSize(tile, dpr) {
-      const sz = (tile / dpr).toFixed(4) + 'px';
-      const st = document.createElement('style');
-      st.textContent =
-        '#gotoDialog,#marginDialog,#scrim,#settingsDialog,.patFill,#libTop .libBrand,#libTop::after,#libContinue::before,#contBarFill,#bottombar::before,.thumb .cover::after,#contThumb::after,.dlgHead::after{background-size:' + sz + ' ' + sz + ' !important;}' +
-        '#libTop::after,#libContinue::before,#bottombar::before,.dlgHead::after{height:' + sz + ' !important;}';
-      document.head.appendChild(st);
+    function snap(file, selectors, heightSelectors, fallback) {
+      const img = new Image();
+      const apply = (tile) => {
+        const sz = (tile / dpr).toFixed(4) + 'px';
+        const st = document.createElement('style');
+        let css = selectors + '{background-size:' + sz + ' ' + sz + ' !important;}';
+        if (heightSelectors) css += heightSelectors + '{height:' + sz + ' !important;}';
+        st.textContent = css;
+        document.head.appendChild(st);
+      };
+      img.onload = () => apply(img.naturalWidth || fallback);
+      img.onerror = () => apply(fallback);
+      img.src = file;
     }
+    // main pattern (pattern.png)
+    snap('pattern.png',
+      '#gotoDialog,#marginDialog,#scrim,#settingsDialog,.patFill,#libTop .libBrand,#libTop::after,#libContinue::before,#contBar,#bottombar::before,.dlgHead::after',
+      '#libTop::after,#libContinue::before,#bottombar::before,.dlgHead::after',
+      4);
+    // cover overlay pattern (pattern-cover.png)
+    snap('pattern-cover.png', '.thumb .cover::after,#contThumb::after', null, 4);
   })();
   $('libContinue').addEventListener('click', () => {
     const id = $('libContinue').dataset.id;

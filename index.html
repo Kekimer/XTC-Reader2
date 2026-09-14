@@ -832,9 +832,9 @@
       this.pages = imgEntries;                 // sorted image entries
       this.indexTable = imgEntries;            // for length compatibility with XTC
       this.metadata = { title: title || 'Манга', author: '' };
+      this.chapters = [];                      // [{ name, startPage(1-based) }]
       this.rtl = true;                         // manga reads right-to-left
     }
-    // async: returns { getImageData() } with decoded RGBA
     async getPageImageAsync(i) {
       if (i < 0 || i >= this.pages.length) return null;
       const bytes = await extractZipEntry(this.zip, this.pages[i]);
@@ -845,6 +845,41 @@
       const idata = cx.getImageData(0, 0, c.width, c.height);
       return { getImageData: () => ({ width: c.width, height: c.height, imageData: idata.data }) };
     }
+  }
+
+  // Parse ComicInfo.xml (if present) → { title, author, chapters }.
+  // <Title>, <Writer>, and <Page Image="002.jpg" Bookmark="Глава 1"/> for chapters.
+  async function parseComicInfo(zip, imgEntries) {
+    const ci = zip.entries.find(en => /(^|\/)comicinfo\.xml$/i.test(en.name));
+    if (!ci) return null;
+    try {
+      const bytes = await extractZipEntry(zip, ci);
+      const xmlText = new TextDecoder('utf-8').decode(bytes);
+      const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+      if (doc.querySelector('parsererror')) return null;
+      const get = (tag) => { const el = doc.querySelector(tag); return el ? el.textContent.trim() : ''; };
+      const title = get('Title');
+      const author = get('Writer');
+      // chapters from <Page Image="filename" Bookmark="name">
+      // Image holds the file NAME → map to the page index in the sorted list.
+      const nameToIdx = new Map();
+      imgEntries.forEach((en, i) => {
+        const base = en.name.split('/').pop().toLowerCase();
+        nameToIdx.set(base, i);
+        nameToIdx.set(en.name.toLowerCase(), i);
+      });
+      const chapters = [];
+      doc.querySelectorAll('Page').forEach(pg => {
+        const bm = pg.getAttribute('Bookmark');
+        if (!bm) return;
+        const imgRef = (pg.getAttribute('Image') || '').toLowerCase();
+        let idx = nameToIdx.has(imgRef) ? nameToIdx.get(imgRef) : nameToIdx.get(imgRef.split('/').pop());
+        if (idx == null) return;
+        chapters.push({ name: bm, startPage: idx + 1 });  // 1-based like XTC
+      });
+      chapters.sort((a, b) => a.startPage - b.startPage);
+      return { title, author, chapters };
+    } catch (e) { return null; }
   }
 
   function isImageName(n) { return /\.(jpe?g|png|gif|webp|bmp)$/i.test(n) && !/^__MACOSX\//.test(n); }
@@ -1145,6 +1180,12 @@
           .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
         if (!imgs.length) throw new Error('в архиве нет изображений');
         cbz = new CBZ_Book(zip, imgs, f.name.replace(/\.[^.]+$/, ''));
+        const ci = await parseComicInfo(zip, imgs);
+        if (ci) {
+          if (ci.title) cbz.metadata.title = ci.title;
+          if (ci.author) cbz.metadata.author = ci.author;
+          if (ci.chapters && ci.chapters.length) cbz.chapters = ci.chapters;
+        }
         xtc = null; singleImage = null; page = 0;
         await setupCBZ(f.name);
         await addToLibrary(f.name, fromLibrary ? null : origBuf);
@@ -1206,7 +1247,10 @@
     updateSmoothLabel();
     invertBtn.classList.toggle('active', inverted);
     app.classList.toggle('invert', inverted);
-    if ($('chapBtn')) $('chapBtn').style.display = 'none';  // no chapters for manga
+    // manga chapters come from ComicInfo.xml (if any); show the button only then
+    if ($('chapBtn')) $('chapBtn').style.display = (cbz.chapters && cbz.chapters.length) ? '' : 'none';
+    buildChapters();
+    buildMeta(fallbackName);
     const startPage = loadPosition(fallbackName, cbz.pages.length - 1);
     await renderCbzPage(startPage);
     startReadTimer();
@@ -1568,16 +1612,21 @@
 
   function buildChapters() {
     chaptersBox.innerHTML = '';
-    if (!xtc.chapters.length) {
+    const chs = cbz ? cbz.chapters : (xtc ? xtc.chapters : []);
+    if (!chs || !chs.length) {
       chaptersBox.innerHTML = '<div class="chapter" style="color:var(--text-dim)">В книге нет оглавления</div>';
       return;
     }
-    xtc.chapters.forEach((ch, i) => {
+    chs.forEach((ch, i) => {
       const el = document.createElement('div');
       el.className = 'chapter';
       el.dataset.start = ch.startPage - 1;
-      el.innerHTML = `<span>${escapeHtml(ch.chapterName || 'Глава ' + (i + 1))}</span><span class="pg">${ch.startPage}</span>`;
-      el.addEventListener('click', () => { renderPage(ch.startPage - 1); closeSheet(); });
+      const nm = ch.chapterName || ch.name || ('Глава ' + (i + 1));
+      el.innerHTML = `<span>${escapeHtml(nm)}</span><span class="pg">${ch.startPage}</span>`;
+      el.addEventListener('click', () => {
+        if (cbz) renderCbzPage(ch.startPage - 1); else renderPage(ch.startPage - 1);
+        closeSheet();
+      });
       chaptersBox.appendChild(el);
     });
   }
@@ -1590,21 +1639,30 @@
   }
 
   function buildMeta(fallbackName) {
-    const m = xtc.metadata;
     const rows = [];
-    const dir = ['слева направо', 'справа налево', 'сверху вниз'][xtc.header.readDirection] || '—';
-    if (m) {
+    if (cbz) {
+      const m = cbz.metadata;
       if (m.title) rows.push(['Название', m.title]);
       if (m.author) rows.push(['Автор', m.author]);
-      if (m.publisher) rows.push(['Издатель', m.publisher]);
-      if (m.language) rows.push(['Язык', m.language]);
-      if (m.createTime) rows.push(['Создан', new Date(m.createTime * 1000).toLocaleDateString()]);
+      rows.push(['Страниц', String(cbz.pages.length)]);
+      rows.push(['Направление чтения', 'справа налево']);
+      rows.push(['Формат', 'CBZ']);
     } else {
-      rows.push(['Файл', fallbackName]);
+      const m = xtc.metadata;
+      const dir = ['слева направо', 'справа налево', 'сверху вниз'][xtc.header.readDirection] || '—';
+      if (m) {
+        if (m.title) rows.push(['Название', m.title]);
+        if (m.author) rows.push(['Автор', m.author]);
+        if (m.publisher) rows.push(['Издатель', m.publisher]);
+        if (m.language) rows.push(['Язык', m.language]);
+        if (m.createTime) rows.push(['Создан', new Date(m.createTime * 1000).toLocaleDateString()]);
+      } else {
+        rows.push(['Файл', fallbackName]);
+      }
+      rows.push(['Страниц', String(xtc.header.pageCount)]);
+      rows.push(['Направление чтения', dir]);
+      rows.push(['Формат', xtc.header.mark === MARK.XTCH ? 'XTCH' : 'XTC']);
     }
-    rows.push(['Страниц', String(xtc.header.pageCount)]);
-    rows.push(['Направление чтения', dir]);
-    rows.push(['Формат', xtc.header.mark === MARK.XTCH ? 'XTCH' : 'XTC']);
     metaBody.innerHTML = rows.map(([k, v]) =>
       `<div class="kv"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(v)}</span></div>`
     ).join('');

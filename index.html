@@ -119,15 +119,25 @@
     background: #fff; border: 2px solid #000; border-radius: 12px;
     display: flex; flex-direction: column; overflow: hidden;
   }
-  #settingsHead {
-    flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 18px; border-bottom: 2px solid #000;
-    font-family: 'Journal Sans New', system-ui, sans-serif; font-weight: 700; font-size: 1.2rem;
+  /* ===== Unified dialog chrome ===== */
+  .dlgHead {
+    flex: 0 0 auto; position: relative;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px 16px;
+    font-family: 'Journal Sans New', system-ui, sans-serif;
+    font-weight: 700; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.06em;
+    color: #000;
   }
-  #settingsClose {
-    appearance: none; background: none; border: none; font-size: 1.3rem; cursor: pointer;
-    color: #000; line-height: 1; padding: 0 4px;
+  .dlgHead::after {   /* pattern divider under the header, same on every dialog */
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4px;
+    background: url('pattern.png') repeat; image-rendering: pixelated;
   }
+.dlgBody { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+  .dlgHead .dlgClose {
+    appearance: none; background: none; border: none; cursor: pointer;
+    font-size: 1.3rem; line-height: 1; color: #000; padding: 0 2px;
+  }
+
   #settingsBody { flex: 1; min-height: 0; overflow-y: auto; padding: 18px; }
 
   /* Empty state: centred book icon */
@@ -156,12 +166,17 @@
     cursor: pointer; min-width: 0;
   }
   .thumb .cover {
-    position: relative;
+    position: relative; isolation: isolate;
     width: 100%; aspect-ratio: 480 / 800;
     border: 2px solid #000; background: #fff;
     overflow: hidden;
   }
   .thumb .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb .cover::after {
+    content: ''; position: absolute; inset: 0; z-index: 1;
+    background: url('pattern-cover.png') repeat; image-rendering: pixelated;
+    mix-blend-mode: overlay; pointer-events: none;
+  }
   .thumb:active .cover { background: #eee; }
   /* corner badge: fixed width to hold "100%" + side padding, centred text */
   .thumb .badge {
@@ -194,13 +209,18 @@
   #library.has-books #libContinue { display: flex; }
   /* thumbnail overhangs the divider line for a bit of dynamism */
   #contThumb {
-    flex: 0 0 auto; position: relative; z-index: 2;
+    flex: 0 0 auto; position: relative; z-index: 2; isolation: isolate;
     width: 78px; aspect-ratio: 480 / 800;
     border: 2px solid #000; background: #fff;
     margin-top: -34px;                 /* pull up above the top border */
     overflow: hidden;
   }
   #contThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #contThumb::after {
+    content: ''; position: absolute; inset: 0; z-index: 1;
+    background: url('pattern-cover.png') repeat; image-rendering: pixelated;
+    mix-blend-mode: overlay; pointer-events: none;
+  }
   #contInfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0; position: relative; top: -3px; }
   #contTitle {
     font-size: 1.42rem; font-weight: 700; color: #000;
@@ -296,17 +316,17 @@
   }
   #scrim.show { display: block; }
   #sheet {
-    position: absolute; left: 0; right: 0; bottom: 0; z-index: 41;
-    max-height: 75%;
+    position: absolute; left: 50%; transform: translateX(-50%); bottom: 0; z-index: 41;
+    width: 90%; max-height: 75%;
     background: #fff;
-    border-top: 2px solid #000;
+    border: 2px solid #000; border-bottom: none;
+    border-radius: 14px 14px 0 0; overflow: hidden;
     display: none; flex-direction: column;
     padding-bottom: var(--safe-bottom);
   }
   #sheet.show { display: flex; }
   #sheetChapters, #sheetMeta { display: flex; flex-direction: column; min-height: 0; flex: 1; }
   #sheet .grip { display: none; }
-  #sheet h2 { margin: 12px 20px 10px; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.06em; color: #000; font-weight: 700; flex: 0 0 auto; }
   #chapters { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 8px 8px; }
   .chapter {
     padding: 14px 16px;
@@ -335,11 +355,10 @@
   }
   #marginDialog.show { display: flex; }
   #marginBox {
-    background: #fff; border: 2px solid #000;
-    padding: 20px; width: 260px; max-width: 80%;
-    display: flex; flex-direction: column; gap: 16px; align-items: stretch;
+    background: #fff; border: 2px solid #000; border-radius: 12px; overflow: hidden;
+    width: 280px; max-width: 82%;
+    display: flex; flex-direction: column;
   }
-  #marginBox h3 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #000; text-align: center; }
   #marginBox .stepper { display: flex; align-items: center; justify-content: center; gap: 18px; }
   #marginBox .step {
     appearance: none; border: 2px solid #000; background: #fff; color: #000;
@@ -362,11 +381,10 @@
   }
   #gotoDialog.show { display: flex; }
   #gotoBox {
-    background: #fff; border: 2px solid #000;
-    padding: 20px; width: 260px; max-width: 80%;
-    display: flex; flex-direction: column; gap: 14px;
+    background: #fff; border: 2px solid #000; border-radius: 12px; overflow: hidden;
+    width: 280px; max-width: 82%;
+    display: flex; flex-direction: column;
   }
-  #gotoBox h3 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #000; }
   #gotoInput {
     appearance: none; border: 2px solid #000; background: #fff; color: #000;
     font-size: 1.1rem; padding: 10px 12px; width: 100%; text-align: center;
@@ -481,12 +499,16 @@
     <!-- Go to page dialog -->
     <div id="gotoDialog">
       <div id="gotoBox">
-        <h3>Перейти к странице</h3>
-        <input type="number" id="gotoInput" min="1" placeholder="№" />
-        <div id="gotoRange">—</div>
-        <div class="row">
-          <button class="cancel" id="gotoCancel">Отмена</button>
-          <button class="ok" id="gotoOk">Перейти</button>
+        <div class="dlgHead">
+          <span>Перейти к странице</span>
+          <button class="dlgClose" id="gotoCancel" title="Закрыть">✕</button>
+        </div>
+        <div class="dlgBody">
+          <input type="number" id="gotoInput" min="1" placeholder="№" />
+          <div id="gotoRange">—</div>
+          <div class="row">
+            <button class="ok" id="gotoOk">Перейти</button>
+          </div>
         </div>
       </div>
     </div>
@@ -494,13 +516,18 @@
     <!-- Margins dialog -->
     <div id="marginDialog">
       <div id="marginBox">
-        <h3>Поля по бокам</h3>
-        <div class="stepper">
-          <button id="marginDown" class="step">◄</button>
-          <span id="marginValue">0</span>
-          <button id="marginUp" class="step">►</button>
+        <div class="dlgHead">
+          <span>Поля по бокам</span>
+          <button class="dlgClose" id="marginCancel" title="Закрыть">✕</button>
         </div>
-        <button class="ok" id="marginOk">ОК</button>
+        <div class="dlgBody">
+          <div class="stepper">
+            <button id="marginDown" class="step">◄</button>
+            <span id="marginValue">0</span>
+            <button id="marginUp" class="step">►</button>
+          </div>
+          <button class="ok" id="marginOk">ОК</button>
+        </div>
       </div>
     </div>
 
@@ -510,11 +537,11 @@
     <div id="sheet">
       <div class="grip"></div>
       <div id="sheetChapters">
-        <h2>Оглавление</h2>
+        <div class="dlgHead"><span>Оглавление</span><button class="dlgClose sheetClose" title="Закрыть">✕</button></div>
         <div id="chapters"></div>
       </div>
       <div id="sheetMeta" style="display:none">
-        <h2>Сведения о книге</h2>
+        <div class="dlgHead"><span>Сведения о книге</span><button class="dlgClose sheetClose" title="Закрыть">✕</button></div>
         <div id="metaBody"></div>
       </div>
     </div>
@@ -525,9 +552,9 @@
   <!-- Settings dialog (empty for now) — app-level so it works on the library screen -->
   <div id="settingsDialog">
     <div id="settingsBox">
-      <div id="settingsHead">
+      <div class="dlgHead">
         <span>Настройки</span>
-        <button id="settingsClose" title="Закрыть">✕</button>
+        <button id="settingsClose" class="dlgClose" title="Закрыть">✕</button>
       </div>
       <div id="settingsBody"></div>
     </div>
@@ -908,6 +935,22 @@
   }
 
   // Render a small cover thumbnail (page 0) as a compact JPEG data URL.
+  async function makeCbzThumb() {
+    if (!cbz) return null;
+    try {
+      const img = await cbz.getPageImageAsync(0);
+      if (!img) return null;
+      const { width, height, imageData } = img.getImageData();
+      const tw = 120, th = Math.round(tw * height / width);
+      const tc = document.createElement('canvas'); tc.width = width; tc.height = height;
+      tc.getContext('2d').putImageData(new ImageData(imageData, width, height), 0, 0);
+      const out = document.createElement('canvas'); out.width = tw; out.height = th;
+      const octx = out.getContext('2d'); octx.imageSmoothingEnabled = true; octx.imageSmoothingQuality = 'high';
+      octx.drawImage(tc, 0, 0, tw, th);
+      return out.toDataURL('image/jpeg', 0.6);
+    } catch (e) { return null; }
+  }
+
   function makeThumb(book) {
     book = book || xtc;
     if (!book) return null;
@@ -929,10 +972,11 @@
   async function addToLibrary(fileName, origBuf) {
     let list = loadLib();
     const id = fileName;
-    const total = xtc ? xtc.indexTable.length : 0;
-    const meta = xtc ? xtc.metadata : null;
+    const isCbz = !!cbz;
+    const total = isCbz ? cbz.pages.length : (xtc ? xtc.indexTable.length : 0);
+    const meta = isCbz ? cbz.metadata : (xtc ? xtc.metadata : null);
     const existing = list.find(b => b.id === id);
-    const thumb = makeThumb();
+    const thumb = isCbz ? await makeCbzThumb() : makeThumb();
     const entry = {
       id,
       name: (meta && meta.title) ? meta.title : fileName.replace(/\.[^.]+$/, ''),
@@ -1103,6 +1147,7 @@
         cbz = new CBZ_Book(zip, imgs, f.name.replace(/\.[^.]+$/, ''));
         xtc = null; singleImage = null; page = 0;
         await setupCBZ(f.name);
+        await addToLibrary(f.name, fromLibrary ? null : origBuf);
       } else {
         throw new Error('Неизвестный формат файла');
       }
@@ -1507,6 +1552,8 @@
   $('chapBtn').addEventListener('click', () => openSheet('chapters'));
   $('infoBtn').addEventListener('click', () => openSheet('meta'));
   scrim.addEventListener('click', closeSheet);
+  document.querySelectorAll('.sheetClose').forEach(el => el.addEventListener('click', closeSheet));
+  $('marginCancel').addEventListener('click', closeMargin);
 
   function openSheet(which) {
     sheetChapters.style.display = which === 'chapters' ? 'flex' : 'none';
@@ -1615,8 +1662,8 @@
       const sz = (tile / dpr).toFixed(4) + 'px';
       const st = document.createElement('style');
       st.textContent =
-        '#gotoDialog,#marginDialog,#scrim,#settingsDialog,.patFill,#libTop .libBrand,#libTop::after,#libContinue::before,#contBarFill,#bottombar::before{background-size:' + sz + ' ' + sz + ' !important;}' +
-        '#libTop::after,#libContinue::before,#bottombar::before{height:' + sz + ' !important;}';
+        '#gotoDialog,#marginDialog,#scrim,#settingsDialog,.patFill,#libTop .libBrand,#libTop::after,#libContinue::before,#contBarFill,#bottombar::before,.thumb .cover::after,#contThumb::after,.dlgHead::after{background-size:' + sz + ' ' + sz + ' !important;}' +
+        '#libTop::after,#libContinue::before,#bottombar::before,.dlgHead::after{height:' + sz + ' !important;}';
       document.head.appendChild(st);
     }
   })();

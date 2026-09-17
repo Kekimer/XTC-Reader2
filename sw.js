@@ -1,5 +1,5 @@
 // XTC Reader — offline cache with auto-update
-const CACHE = 'xtc-reader-v32';
+const CACHE = 'xtc-reader-v33';
 const ASSETS = [
   './',
   './index.html',
@@ -9,6 +9,7 @@ const ASSETS = [
   './JournalSansNewI.otf',
   './pattern.png',
   './pattern-cover.png',
+  './progress_icon.png',
   './icon-96.png',
   './icon-192.png',
   './icon-512.png',

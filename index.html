@@ -272,9 +272,9 @@
   #contBarMarker {
     position: absolute; top: 50%; left: 0%;
     transform: translate(-50%, -50%);
-    width: 36px; height: 29px;
+    width: 18px; height: 18px;
     display: grid; place-items: center;
-    background: #fff; border: 1.5px solid #fff; border-radius: 3px;
+    background: #000; border: 2px solid #fff; border-radius: 3px;
     pointer-events: none;
   }
   #contBarMarker svg { width: 11px; height: 11px; display: block; }
@@ -505,7 +505,10 @@
         <div id="contBarWrap">
           <div id="contBar"><div id="contBarFill"></div></div>
           <div id="contBarMarker">
-			<img src="progress_icon.png" alt="Marker" style="display: block; width: 36px; height: 29px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h11a2 2 0 0 1 2 2v14a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2z"/>
+              <path d="M17 6h3v13a2 2 0 0 1-2 2h-1"/>
+            </svg>
           </div>
         </div>
       </div>

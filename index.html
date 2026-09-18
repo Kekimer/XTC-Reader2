@@ -57,7 +57,7 @@
     overscroll-behavior: none;
   }
 
-  #app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+  #app { position: fixed; inset: 0; display: flex; flex-direction: column; background: #fff; }
 
   /* ---------- Library (home) ---------- */
   #library { flex: 1; display: none; flex-direction: column; position: relative; }
@@ -203,6 +203,7 @@
   .thumb {
     display: flex; flex-direction: column; align-items: center; gap: 6px;
     cursor: pointer; min-width: 0;
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
   }
   .thumb .cover {
     position: relative; isolation: isolate;
@@ -264,7 +265,7 @@
   }
   #contInfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0; position: relative; top: -3px; }
   #contTitle {
-    font-size: 1.42rem; font-weight: 700; color: #000;
+    font-size: 1.3rem; font-weight: 700; color: #000;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 	text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
   }
@@ -471,6 +472,39 @@
   }
   #toast.show { display: block; }
 
+  /* Library status window: centred mini-window describing the current action
+     (opening a book, refreshing covers) — same look as the reader toast */
+  #libStatus {
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    background: #fff; color: #000; border: 2px solid #000;
+    border-radius: 10px;
+    padding: 16px 24px; font-size: 1rem; font-weight: 700;
+    text-align: center; max-width: 80%;
+    z-index: 65; display: none;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.15);
+  }
+  #libStatus.show { display: block; }
+
+  /* Long-press cover menu (Читать / Обновить обложку / Удалить с полки) */
+  #coverMenuScrim { position: absolute; inset: 0; z-index: 70; display: none; }
+  #coverMenuScrim.show { display: block; }
+  #coverMenu {
+    position: absolute; z-index: 71; display: none;
+    background: #fff; border: 2px solid #000; border-radius: 10px;
+    overflow: hidden; min-width: 190px;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.15);
+  }
+  #coverMenu.show { display: block; }
+  #coverMenu button {
+    display: block; width: 100%; text-align: left;
+    appearance: none; background: #fff; color: #000; border: none;
+    border-bottom: 1px solid #000; padding: 13px 16px;
+    font-family: inherit; font-size: 1.05rem; cursor: pointer;
+  }
+  #coverMenu button:last-child { border-bottom: none; }
+  #coverMenu button:active { background: #000; color: #fff; }
+
   input[type=file] { display: none; }
 </style>
 </head>
@@ -530,6 +564,17 @@
         </div>
       </div>
     </div>
+
+    <!-- Centred status window (opening a book / refreshing covers) -->
+    <div id="libStatus"></div>
+
+    <!-- Long-press cover menu -->
+    <div id="coverMenuScrim"></div>
+    <div id="coverMenu">
+      <button type="button" data-act="read">Читать</button>
+      <button type="button" data-act="refresh">Обновить обложку</button>
+      <button type="button" data-act="delete">Удалить с полки</button>
+    </div>
   </div>
 
   <!-- Reader -->
@@ -558,9 +603,6 @@
       </button>
       <button class="icon-btn" id="marginBtn" title="Поля">
         <span style="font-size:0.82rem;font-weight:700">М</span>
-      </button>
-      <button class="icon-btn" id="invertBtn" title="Инвертировать цвета">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/></svg>
       </button>
       <span id="pageReadout">—</span>
       <button class="icon-btn" id="gotoBtn" title="Перейти к странице">Go to</button>
@@ -627,6 +669,10 @@
         <button id="settingsClose" class="dlgClose" title="Закрыть">✕</button>
       </div>
       <div id="settingsBody">
+        <div class="setRow">
+          <span class="lbl">Тёмный режим</span>
+          <input type="checkbox" class="chk" id="setDarkMode" />
+        </div>
         <div class="setRow">
           <span class="lbl">Полутоновые маски на превью</span>
           <input type="checkbox" class="chk" id="setPreviewMask" />
@@ -987,7 +1033,8 @@
   const chaptersBox = $('chapters');
   const sheetChapters = $('sheetChapters'), sheetMeta = $('sheetMeta'), metaBody = $('metaBody');
   const toast = $('toast');
-  const marginBtn = $('marginBtn'), invertBtn = $('invertBtn');
+  const libStatus = $('libStatus');
+  const marginBtn = $('marginBtn');
   const smoothBtn = $('smoothBtn');
   const smoothLabel = $('smoothLabel');
 
@@ -1015,7 +1062,6 @@
   let toastTimer = null;
   let sideMargin = 0;      // white padding added left+right in file pixels (0/5/10/15/20/25)
   const MARGIN_STEPS = [0, 5, 10, 15, 20, 25];
-  let inverted = false;    // OLED-friendly color inversion
   let smoothMode = 'bil'; // 'bil' (bilinear) | 'lan' (Lanczos-3) | 'off' (nearest)
   const SMOOTH_LABEL = { bil: 'BIL', lan: 'LAN', off: 'OFF' };
   let nativeW = 0, nativeH = 0;
@@ -1146,6 +1192,38 @@
 
   function truncName(s) { return s; } // CSS ellipsis handles it
 
+  // ---- Library status window (centred mini-window) ----
+  let libStatusTimer = null;
+  function showLibStatus(msg, autoHideMs) {
+    libStatus.textContent = msg;
+    libStatus.classList.add('show');
+    clearTimeout(libStatusTimer);
+    if (autoHideMs) libStatusTimer = setTimeout(() => libStatus.classList.remove('show'), autoHideMs);
+  }
+  function hideLibStatus() { clearTimeout(libStatusTimer); libStatus.classList.remove('show'); }
+  // let the browser paint the status window before a blocking decode
+  function nextPaint() { return new Promise(r => requestAnimationFrame(() => setTimeout(r, 0))); }
+
+  // Build a cover thumbnail (page 0) from a book's original bytes in IndexedDB.
+  async function buildThumbForId(id) {
+    const buf = await idbGet(id);
+    if (!buf) return null;
+    let dbuf = buf;
+    let mark = new DataView(dbuf).getUint32(0, LE);
+    if (mark === MARK.XTZ4) { dbuf = decodeXTZ4(dbuf); mark = new DataView(dbuf).getUint32(0, LE); }
+    if (mark === MARK.XTC || mark === MARK.XTCH) {
+      return makeThumb(new XTC_File(dbuf));
+    } else if ((mark & 0xffff) === 0x4b50 || /\.cbz$/i.test(id)) {
+      if (typeof DecompressionStream !== 'undefined') {
+        const zip = await readZipEntries(buf);
+        const imgs = zip.entries.filter(en => isImageName(en.name))
+          .sort((a, c) => a.name.localeCompare(c.name, undefined, { numeric: true }));
+        if (imgs.length) return await makeCbzThumb(new CBZ_Book(zip, imgs, id));
+      }
+    }
+    return null;
+  }
+
   function renderLibrary() {
     const list = loadLib();
     library.classList.toggle('has-books', list.length > 0);
@@ -1163,7 +1241,7 @@
           '<span class="badge">' + badge + '</span>' +
         '</div>' +
         '<div class="name">' + escapeHtml(b.name) + '</div>';
-      el.addEventListener('click', () => reopenBook(b.id));
+      attachCoverGestures(el, b.id);
       shelf.appendChild(el);
     });
     // continue block = last opened book (falls back to newest); order is untouched
@@ -1202,7 +1280,7 @@
       return;
     }
     // not stored (e.g. cleared) — ask the user to pick it again
-    showToast('Файл не найден в хранилище — выберите заново');
+    showLibStatus('Файл не найден в хранилище — выберите заново', 2600);
     openFilePicker();
   }
 
@@ -1211,29 +1289,19 @@
   async function regenerateThumbs() {
     if (refreshBusy) return;
     const list = loadLib();
-    if (!list.length) { showToast('Нет книг для обновления'); return; }
+    if (!list.length) { showLibStatus('Нет книг для обновления', 1600); return; }
     refreshBusy = true;
     const btn = $('libRefreshBtn');
     if (btn) btn.classList.add('spin');
-    let updated = 0, missing = 0;
+    showLibStatus('Обновление обложек…');
+    await nextPaint();
+    let updated = 0, i = 0;
     for (const b of list) {
+      i++;
+      showLibStatus('Обновление обложек… ' + i + '/' + list.length);
+      await nextPaint();
       try {
-        const buf = await idbGet(b.id);
-        if (!buf) { missing++; continue; }   // original bytes not stored
-        let thumb = null;
-        let dbuf = buf;
-        let mark = new DataView(dbuf).getUint32(0, LE);
-        if (mark === MARK.XTZ4) { dbuf = decodeXTZ4(dbuf); mark = new DataView(dbuf).getUint32(0, LE); }
-        if (mark === MARK.XTC || mark === MARK.XTCH) {
-          thumb = makeThumb(new XTC_File(dbuf));
-        } else if ((mark & 0xffff) === 0x4b50 || /\.cbz$/i.test(b.id)) {
-          if (typeof DecompressionStream !== 'undefined') {
-            const zip = await readZipEntries(buf);
-            const imgs = zip.entries.filter(en => isImageName(en.name))
-              .sort((a, c) => a.name.localeCompare(c.name, undefined, { numeric: true }));
-            if (imgs.length) thumb = await makeCbzThumb(new CBZ_Book(zip, imgs, b.name));
-          }
-        }
+        const thumb = await buildThumbForId(b.id);
         if (thumb) { b.thumb = thumb; updated++; }
       } catch (e) { /* skip this book, keep going */ }
     }
@@ -1241,7 +1309,83 @@
     renderLibrary();
     if (btn) btn.classList.remove('spin');
     refreshBusy = false;
-    showToast(updated ? ('Превью обновлены: ' + updated) : 'Не удалось обновить превью');
+    showLibStatus(updated ? ('Обложки обновлены: ' + updated) : 'Не удалось обновить обложки', 1800);
+  }
+
+  // ---- Long-press cover menu: Читать / Обновить обложку / Удалить с полки ----
+  let coverMenuId = null;
+  function openCoverMenu(id, x, y) {
+    coverMenuId = id;
+    const menu = $('coverMenu'), scrim = $('coverMenuScrim');
+    const rect = library.getBoundingClientRect();
+    scrim.classList.add('show');
+    menu.classList.add('show');
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    let left = x - rect.left, top = y - rect.top;
+    left = Math.max(8, Math.min(left, rect.width - mw - 8));
+    top = Math.max(8, Math.min(top, rect.height - mh - 8));
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+  }
+  function closeCoverMenu() {
+    coverMenuId = null;
+    $('coverMenu').classList.remove('show');
+    $('coverMenuScrim').classList.remove('show');
+  }
+
+  // Refresh one book's cover from its stored bytes.
+  async function refreshOneThumb(id) {
+    showLibStatus('Обновление обложки…');
+    await nextPaint();
+    let ok = false;
+    try {
+      const thumb = await buildThumbForId(id);
+      if (thumb) {
+        const list = loadLib();
+        const b = list.find(x => x.id === id);
+        if (b) { b.thumb = thumb; saveLib(list); renderLibrary(); ok = true; }
+      }
+    } catch (e) {}
+    showLibStatus(ok ? 'Обложка обновлена' : 'Не удалось обновить обложку', 1600);
+  }
+
+  // Remove a book from the shelf: drop its card, stored file and reading position.
+  async function deleteFromShelf(id) {
+    let list = loadLib();
+    list = list.filter(b => b.id !== id);
+    saveLib(list);
+    await idbDelete(id);
+    try { localStorage.removeItem(posKey(id)); } catch (e) {}
+    try { if (localStorage.getItem('xtclast') === id) localStorage.removeItem('xtclast'); } catch (e) {}
+    renderLibrary();
+    showLibStatus('Удалено с полки', 1400);
+  }
+
+  // Attach tap-to-open + long-press-for-menu to a shelf cover element.
+  function attachCoverGestures(el, id) {
+    let timer = null, longFired = false, sx = 0, sy = 0;
+    const start = (x, y) => {
+      longFired = false; sx = x; sy = y;
+      clearTimeout(timer);
+      timer = setTimeout(() => { longFired = true; openCoverMenu(id, x, y); }, 500);
+    };
+    const move = (x, y) => {
+      if (Math.abs(x - sx) > 10 || Math.abs(y - sy) > 10) clearTimeout(timer);
+    };
+    const end = () => clearTimeout(timer);
+    el.addEventListener('touchstart', e => { const t = e.touches[0]; start(t.clientX, t.clientY); }, { passive: true });
+    el.addEventListener('touchmove', e => { const t = e.touches[0]; move(t.clientX, t.clientY); }, { passive: true });
+    el.addEventListener('touchend', end);
+    el.addEventListener('touchcancel', end);
+    el.addEventListener('mousedown', e => start(e.clientX, e.clientY));
+    el.addEventListener('mousemove', e => move(e.clientX, e.clientY));
+    el.addEventListener('mouseup', end);
+    el.addEventListener('mouseleave', end);
+    el.addEventListener('contextmenu', e => e.preventDefault());
+    el.addEventListener('click', e => {
+      if (longFired) { e.preventDefault(); e.stopPropagation(); longFired = false; return; }
+      reopenBook(id);
+    });
   }
 
   // ============ Read time (counts only while turning pages) ============
@@ -1268,7 +1412,14 @@
   // ============ Settings (preview masks + default smoothing) ============
   const PREVIEW_MASK_KEY = 'xtcPreviewMask';
   const ROUND_COVER_KEY = 'xtcRoundCover';
+  const DARK_MODE_KEY = 'xtcDarkMode';
   const DEFAULT_SMOOTH_KEY = 'xtcDefaultSmooth';
+  function darkModeOn() {
+    try { return localStorage.getItem(DARK_MODE_KEY) === '1'; } catch (e) { return false; }
+  }
+  function applyDarkMode() {
+    app.classList.toggle('invert', darkModeOn());
+  }
   function previewMaskOn() {
     try { return localStorage.getItem(PREVIEW_MASK_KEY) !== '0'; } catch (e) { return true; }
   }
@@ -1292,14 +1443,28 @@
     if (chk) chk.checked = previewMaskOn();
     const rnd = $('setRoundCover');
     if (rnd) rnd.checked = roundCoverOn();
+    const dk = $('setDarkMode');
+    if (dk) dk.checked = darkModeOn();
     const sel = $('setDefaultSmooth');
     if (sel) sel.value = defaultSmooth();
   }
   applyPreviewMask();
   applyRoundCover();
+  applyDarkMode();
 
   $('libOpenBtn').addEventListener('click', openFilePicker);
   $('libRefreshBtn').addEventListener('click', regenerateThumbs);
+  $('coverMenuScrim').addEventListener('click', closeCoverMenu);
+  $('coverMenu').addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const id = coverMenuId, act = btn.dataset.act;
+    closeCoverMenu();
+    if (!id) return;
+    if (act === 'read') reopenBook(id);
+    else if (act === 'refresh') refreshOneThumb(id);
+    else if (act === 'delete') deleteFromShelf(id);
+  });
   $('libSettingsBtn').addEventListener('click', () => { syncSettingsControls(); $('settingsDialog').classList.add('show'); });
   $('settingsClose').addEventListener('click', () => $('settingsDialog').classList.remove('show'));
   $('setPreviewMask').addEventListener('change', e => {
@@ -1310,13 +1475,16 @@
     try { localStorage.setItem(ROUND_COVER_KEY, e.target.checked ? '1' : '0'); } catch (err) {}
     applyRoundCover();
   });
+  $('setDarkMode').addEventListener('change', e => {
+    try { localStorage.setItem(DARK_MODE_KEY, e.target.checked ? '1' : '0'); } catch (err) {}
+    applyDarkMode();
+  });
   $('setDefaultSmooth').addEventListener('change', e => {
     try { localStorage.setItem(DEFAULT_SMOOTH_KEY, e.target.value); } catch (err) {}
   });
   $('settingsDialog').addEventListener('click', e => { if (e.target === $('settingsDialog')) $('settingsDialog').classList.remove('show'); });
   $('homeBtn').addEventListener('click', goHome);
   marginBtn.addEventListener('click', openMargin);
-  invertBtn.addEventListener('click', toggleInvert);
   smoothBtn.addEventListener('click', cycleSmooth);
 
   // Open via File System Access API when available (so the shelf can reopen files),
@@ -1331,6 +1499,8 @@
   });
 
   async function openFile(f, handle, fromLibrary) {
+    showLibStatus('Открытие книги…');
+    await nextPaint();
     try {
       const origBuf = await f.arrayBuffer();   // keep the original (possibly .xtcz) bytes
       let buf = origBuf;
@@ -1369,8 +1539,9 @@
       } else {
         throw new Error('Неизвестный формат файла');
       }
+      hideLibStatus();
     } catch (err) {
-      showToast('Ошибка: ' + err.message);
+      showLibStatus('Ошибка: ' + err.message, 3000);
       console.error(err);
     }
   }
@@ -1394,8 +1565,6 @@
     sideMargin = loadMargin();       // per-book (needs bookKey set)
     smoothMode = loadSmooth();       // per-book
     updateSmoothLabel();
-    invertBtn.classList.toggle('active', inverted);
-    app.classList.toggle('invert', inverted);
     const m = xtc.metadata;
     buildChapters();
     buildMeta(fallbackName);
@@ -1409,8 +1578,6 @@
     reader.classList.add('on');
     sideMargin = loadMargin();
     updateSmoothLabel();
-    invertBtn.classList.toggle('active', inverted);
-    app.classList.toggle('invert', inverted);
     renderCurrentImage(singleImage);
   }
 
@@ -1422,8 +1589,6 @@
     sideMargin = loadMargin();
     smoothMode = loadSmooth();
     updateSmoothLabel();
-    invertBtn.classList.toggle('active', inverted);
-    app.classList.toggle('invert', inverted);
     // manga chapters come from ComicInfo.xml (if any); show the button only then
     if ($('chapBtn')) $('chapBtn').style.display = (cbz.chapters && cbz.chapters.length) ? '' : 'none';
     buildChapters();
@@ -1697,13 +1862,6 @@
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(paint, 120);
   });
-
-  // ============ Invert (OLED-friendly) ============
-  function toggleInvert() {
-    inverted = !inverted;
-    app.classList.toggle('invert', inverted);
-    invertBtn.classList.toggle('active', inverted);
-  }
 
   // ============ Smoothing (HQ downscale) ============
   function cycleSmooth() {

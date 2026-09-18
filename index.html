@@ -209,6 +209,7 @@
     width: 100%; aspect-ratio: 480 / 800;
     border: 2px solid #000; background: #fff;
     overflow: hidden;
+    border-radius: 8px;   /* overflow:hidden clips the badge corner to match */
   }
   .thumb .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .thumb .cover::after {
@@ -253,6 +254,7 @@
     border: 2px solid #000; background: #fff;
     margin-top: -34px;                 /* pull up above the top border */
     overflow: hidden;
+    border-radius: 8px;
   }
   #contThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
   #contThumb::after {
@@ -264,6 +266,7 @@
   #contTitle {
     font-size: 1.42rem; font-weight: 700; color: #000;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+	text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
   }
   #contAuthor {
     font-size: 1.23rem; font-weight: 400; font-style: italic; color: #444;
@@ -292,6 +295,10 @@
   /* Setting: hide preview halftone masks when turned off */
   #library.no-preview-mask .thumb .cover::after,
   #library.no-preview-mask #contThumb::after { display: none; }
+
+  /* Setting: square cover previews when rounding is turned off */
+  #library.no-rounded-cover .thumb .cover,
+  #library.no-rounded-cover #contThumb { border-radius: 0; }
 
   /* ---------- Reader ---------- */
   #reader { flex: 1; position: relative; display: none; flex-direction: column; }
@@ -482,13 +489,13 @@
       </span>
       <span class="libTools">
         <button id="libRefreshBtn" title="Обновить превью">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
         </button>
         <button id="libOpenBtn" title="Открыть файл">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M6 10h12"/></svg>
         </button>
         <button id="libSettingsBtn" title="Настройки">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <svg viewBox="0 0 25 25" fill="none" stroke="#444" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
       </span>
     </div>
@@ -623,6 +630,10 @@
         <div class="setRow">
           <span class="lbl">Полутоновые маски на превью</span>
           <input type="checkbox" class="chk" id="setPreviewMask" />
+        </div>
+        <div class="setRow">
+          <span class="lbl">Скруглённые превью обложек</span>
+          <input type="checkbox" class="chk" id="setRoundCover" />
         </div>
         <div class="setRow">
           <span class="lbl">Сглаживание по умолчанию</span>
@@ -1062,7 +1073,7 @@
       const out = document.createElement('canvas'); out.width = tw; out.height = th;
       const octx = out.getContext('2d'); octx.imageSmoothingEnabled = true; octx.imageSmoothingQuality = 'high';
       octx.drawImage(tc, 0, 0, tw, th);
-      return out.toDataURL('image/jpeg', 0.6);
+      return out.toDataURL('image/jpeg', 0.75);
     } catch (e) { return null; }
   }
 
@@ -1078,7 +1089,7 @@
       const out = document.createElement('canvas'); out.width = tw; out.height = th;
       const octx = out.getContext('2d'); octx.imageSmoothingEnabled = true; octx.imageSmoothingQuality = 'high';
       octx.drawImage(tc, 0, 0, tw, th);
-      return out.toDataURL('image/jpeg', 0.6);
+      return out.toDataURL('image/jpeg', 0.75);
     } catch (e) { return null; }
   }
 
@@ -1256,12 +1267,19 @@
   // ============ Open file ============
   // ============ Settings (preview masks + default smoothing) ============
   const PREVIEW_MASK_KEY = 'xtcPreviewMask';
+  const ROUND_COVER_KEY = 'xtcRoundCover';
   const DEFAULT_SMOOTH_KEY = 'xtcDefaultSmooth';
   function previewMaskOn() {
     try { return localStorage.getItem(PREVIEW_MASK_KEY) !== '0'; } catch (e) { return true; }
   }
   function applyPreviewMask() {
     library.classList.toggle('no-preview-mask', !previewMaskOn());
+  }
+  function roundCoverOn() {
+    try { return localStorage.getItem(ROUND_COVER_KEY) !== '0'; } catch (e) { return true; }
+  }
+  function applyRoundCover() {
+    library.classList.toggle('no-rounded-cover', !roundCoverOn());
   }
   function defaultSmooth() {
     try {
@@ -1272,10 +1290,13 @@
   function syncSettingsControls() {
     const chk = $('setPreviewMask');
     if (chk) chk.checked = previewMaskOn();
+    const rnd = $('setRoundCover');
+    if (rnd) rnd.checked = roundCoverOn();
     const sel = $('setDefaultSmooth');
     if (sel) sel.value = defaultSmooth();
   }
   applyPreviewMask();
+  applyRoundCover();
 
   $('libOpenBtn').addEventListener('click', openFilePicker);
   $('libRefreshBtn').addEventListener('click', regenerateThumbs);
@@ -1284,6 +1305,10 @@
   $('setPreviewMask').addEventListener('change', e => {
     try { localStorage.setItem(PREVIEW_MASK_KEY, e.target.checked ? '1' : '0'); } catch (err) {}
     applyPreviewMask();
+  });
+  $('setRoundCover').addEventListener('change', e => {
+    try { localStorage.setItem(ROUND_COVER_KEY, e.target.checked ? '1' : '0'); } catch (err) {}
+    applyRoundCover();
   });
   $('setDefaultSmooth').addEventListener('change', e => {
     try { localStorage.setItem(DEFAULT_SMOOTH_KEY, e.target.value); } catch (err) {}

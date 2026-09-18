@@ -105,6 +105,15 @@
   }
   #libSettingsBtn:active { opacity: 0.5; }
   #libSettingsBtn svg { width: 34px; height: 34px; display: block; }
+  #libRefreshBtn {
+    appearance: none; background: none; color: #000; border: none; padding: 0;
+    width: 40px; height: 40px; display: grid; place-items: center; cursor: pointer;
+    flex: 0 0 auto;
+  }
+  #libRefreshBtn:active { opacity: 0.5; }
+  #libRefreshBtn svg { width: 32px; height: 32px; display: block; }
+  #libRefreshBtn.spin svg { animation: libspin 0.8s linear infinite; }
+  @keyframes libspin { to { transform: rotate(360deg); } }
 
   /* Settings dialog: centred, 90% × 80%, pattern behind */
   #settingsDialog {
@@ -257,8 +266,9 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   #contAuthor {
-    font-size: 1.23rem; font-weight: 400; font-style: italic; color: #000;
+    font-size: 1.23rem; font-weight: 400; font-style: italic; color: #444;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+	padding-left: 0.1em;
   }
   #contStats {
     display: flex; justify-content: space-between;
@@ -267,14 +277,14 @@
   }
   #contBarWrap { position: relative; margin-top: 8px; }
   #contBar { height: 6px; border-radius: 3px; overflow: hidden; background: url('pattern.png') repeat #fff; image-rendering: pixelated; }
-  #contBarFill { height: 100%; width: 0%; background: #000; }
+  #contBarFill { height: 100%; width: 0%; background: #444; }
   /* book marker: horizontally centred on the progress point, vertically centred on the bar */
   #contBarMarker {
     position: absolute; top: 50%; left: 0%;
     transform: translate(-50%, -50%);
-    width: 18px; height: 18px;
+    width: 20px; height: 20px;
     display: grid; place-items: center;
-    background: #000; border: 2px solid #fff; border-radius: 3px;
+    background: #000; border: 3px solid #fff; border-radius: 10px;
     pointer-events: none;
   }
   #contBarMarker svg { width: 11px; height: 11px; display: block; }
@@ -471,11 +481,14 @@
         <span class="libTitle">XTC-Reader</span>
       </span>
       <span class="libTools">
+        <button id="libRefreshBtn" title="Обновить превью">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        </button>
         <button id="libOpenBtn" title="Открыть файл">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg>
         </button>
         <button id="libSettingsBtn" title="Настройки">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
       </span>
     </div>
@@ -505,10 +518,7 @@
         <div id="contBarWrap">
           <div id="contBar"><div id="contBarFill"></div></div>
           <div id="contBarMarker">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 4h11a2 2 0 0 1 2 2v14a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2z"/>
-              <path d="M17 6h3v13a2 2 0 0 1-2 2h-1"/>
-            </svg>
+		  <!-- Svg icon place here -->
           </div>
         </div>
       </div>
@@ -1039,13 +1049,14 @@
   }
 
   // Render a small cover thumbnail (page 0) as a compact JPEG data URL.
-  async function makeCbzThumb() {
-    if (!cbz) return null;
+  async function makeCbzThumb(book) {
+    book = book || cbz;
+    if (!book) return null;
     try {
-      const img = await cbz.getPageImageAsync(0);
+      const img = await book.getPageImageAsync(0);
       if (!img) return null;
       const { width, height, imageData } = img.getImageData();
-      const tw = 120, th = Math.round(tw * height / width);
+      const tw = 200, th = Math.round(tw * height / width);
       const tc = document.createElement('canvas'); tc.width = width; tc.height = height;
       tc.getContext('2d').putImageData(new ImageData(imageData, width, height), 0, 0);
       const out = document.createElement('canvas'); out.width = tw; out.height = th;
@@ -1061,7 +1072,7 @@
     try {
       const img = book.getPageImage(0);
       const { width, height, imageData } = img.getImageData();
-      const tw = 120, th = Math.round(tw * height / width);
+      const tw = 200, th = Math.round(tw * height / width);
       const tc = document.createElement('canvas'); tc.width = width; tc.height = height;
       tc.getContext('2d').putImageData(new ImageData(imageData, width, height), 0, 0);
       const out = document.createElement('canvas'); out.width = tw; out.height = th;
@@ -1184,6 +1195,44 @@
     openFilePicker();
   }
 
+  // Rebuild every shelf thumbnail from the original files kept in IndexedDB.
+  let refreshBusy = false;
+  async function regenerateThumbs() {
+    if (refreshBusy) return;
+    const list = loadLib();
+    if (!list.length) { showToast('Нет книг для обновления'); return; }
+    refreshBusy = true;
+    const btn = $('libRefreshBtn');
+    if (btn) btn.classList.add('spin');
+    let updated = 0, missing = 0;
+    for (const b of list) {
+      try {
+        const buf = await idbGet(b.id);
+        if (!buf) { missing++; continue; }   // original bytes not stored
+        let thumb = null;
+        let dbuf = buf;
+        let mark = new DataView(dbuf).getUint32(0, LE);
+        if (mark === MARK.XTZ4) { dbuf = decodeXTZ4(dbuf); mark = new DataView(dbuf).getUint32(0, LE); }
+        if (mark === MARK.XTC || mark === MARK.XTCH) {
+          thumb = makeThumb(new XTC_File(dbuf));
+        } else if ((mark & 0xffff) === 0x4b50 || /\.cbz$/i.test(b.id)) {
+          if (typeof DecompressionStream !== 'undefined') {
+            const zip = await readZipEntries(buf);
+            const imgs = zip.entries.filter(en => isImageName(en.name))
+              .sort((a, c) => a.name.localeCompare(c.name, undefined, { numeric: true }));
+            if (imgs.length) thumb = await makeCbzThumb(new CBZ_Book(zip, imgs, b.name));
+          }
+        }
+        if (thumb) { b.thumb = thumb; updated++; }
+      } catch (e) { /* skip this book, keep going */ }
+    }
+    saveLib(list);
+    renderLibrary();
+    if (btn) btn.classList.remove('spin');
+    refreshBusy = false;
+    showToast(updated ? ('Превью обновлены: ' + updated) : 'Не удалось обновить превью');
+  }
+
   // ============ Read time (counts only while turning pages) ============
   let readTimerActive = false, lastTurnTs = 0;
   const MAX_GAP_MS = 5 * 60 * 1000; // ignore gaps longer than 5 min (user stepped away)
@@ -1229,6 +1278,7 @@
   applyPreviewMask();
 
   $('libOpenBtn').addEventListener('click', openFilePicker);
+  $('libRefreshBtn').addEventListener('click', regenerateThumbs);
   $('libSettingsBtn').addEventListener('click', () => { syncSettingsControls(); $('settingsDialog').classList.add('show'); });
   $('settingsClose').addEventListener('click', () => $('settingsDialog').classList.remove('show'));
   $('setPreviewMask').addEventListener('change', e => {

@@ -179,26 +179,16 @@
     pointer-events: none; font-size: 0.9rem; color: #000;
   }
 
-  /* Empty state: centred book icon */
-  #libEmpty {
-    position: absolute; inset: 0; z-index: 1;
-    display: flex; align-items: center; justify-content: center;
-    pointer-events: none;
-  }
-  #libEmpty svg { width: 96px; height: 96px; opacity: 0.85; }
-  #library.has-books #libEmpty { display: none; }
-
-  /* Middle block: shelf 2 rows × 3 */
+  /* Middle block: shelf 2 rows × 3 — always shown (books + empty slots) */
   #libShelf {
     flex: 1;
-    display: none;                     /* shown only when a book exists */
+    display: grid;
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(2, 1fr);
     gap: 14px;
     padding: 18px;
     align-content: start;
   }
-  #library.has-books #libShelf { display: grid; }
 
   .thumb {
     display: flex; flex-direction: column; align-items: center; gap: 6px;
@@ -219,6 +209,22 @@
     mix-blend-mode: overlay; pointer-events: none;
   }
   .thumb:active .cover { background: #eee; }
+
+  /* Empty placeholder slot: same rounded rectangle as a cover, light border,
+     white fill textured with pattern.png at 6%, back.png centred at 60% width */
+  .thumb .cover.slot { border-color: #f0f0f0; background: #fff; }
+  .thumb .cover.slot::after { display: none; }        /* no halftone on placeholders */
+  .thumb .cover.slot::before {
+    content: ''; position: absolute; inset: 0; z-index: 1;
+    background: url('pattern.png') repeat; image-rendering: pixelated;
+    opacity: 0.06; pointer-events: none;
+  }
+  .thumb .cover.slot .slotIcon {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 60%; height: auto; z-index: 2; display: block; pointer-events: none;
+  }
+  .thumb.placeholder:active .cover.slot { background: #f7f7f7; }
+
   /* corner badge: fixed width to hold "100%" + side padding, centred text */
   .thumb .badge {
     position: absolute; top: 0; right: 0; z-index: 2; /* над полутоновой маской (::after z-index:1) */
@@ -534,16 +540,7 @@
       </span>
     </div>
 
-    <!-- Empty state: centred book icon, hidden once a book exists -->
-    <div id="libEmpty">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M4 4h11a2 2 0 0 1 2 2v14a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2z"/>
-        <path d="M17 6h3v13a2 2 0 0 1-2 2h-1"/>
-        <path d="M8 8h5M8 11h5"/>
-      </svg>
-    </div>
-
-    <!-- Middle block: shelf of up to 6 thumbnails (2 rows × 3) -->
+    <!-- Middle block: shelf of 6 slots (covers + empty placeholders) -->
     <div id="libShelf"></div>
 
     <!-- Bottom block: continue reading (last opened book) -->
@@ -1070,6 +1067,7 @@
   // Metadata for up to N books kept in localStorage; file handles (for reopening)
   // kept in IndexedDB, keyed by the same id. Newest first.
   const LIB_KEY = 'xtclib';
+  const DETACHED_KEY = 'xtclib:detached';
   const MAX_BOOKS = 6;
 
   function loadLib() {
@@ -1078,6 +1076,15 @@
   }
   function saveLib(list) {
     try { localStorage.setItem(LIB_KEY, JSON.stringify(list.slice(0, MAX_BOOKS))); } catch (e) {}
+  }
+  // Books removed from the shelf but whose reading info is kept (cover, progress,
+  // read time). Reopening the same file restores its entry from here.
+  function loadDetached() {
+    try { const o = JSON.parse(localStorage.getItem(DETACHED_KEY)); return (o && typeof o === 'object') ? o : {}; }
+    catch (e) { return {}; }
+  }
+  function saveDetached(map) {
+    try { localStorage.setItem(DETACHED_KEY, JSON.stringify(map)); } catch (e) {}
   }
 
   // --- IndexedDB storing the original book files (ArrayBuffer) by id ---
@@ -1148,6 +1155,8 @@
     const total = isCbz ? cbz.pages.length : (xtc ? xtc.indexTable.length : 0);
     const meta = isCbz ? cbz.metadata : (xtc ? xtc.metadata : null);
     const existing = list.find(b => b.id === id);
+    const detached = loadDetached();
+    const prev = existing || detached[id] || null;   // reopened-from-detached keeps its info
     const thumb = isCbz ? await makeCbzThumb() : makeThumb();
     const entry = {
       id,
@@ -1155,10 +1164,12 @@
       author: (meta && meta.author) ? meta.author : '',
       total,
       page: existing ? existing.page : page,
-      thumb: thumb || (existing ? existing.thumb : null),
-      readMs: existing ? (existing.readMs || 0) : 0,
-      stored: existing ? existing.stored : false,
+      thumb: thumb || (prev ? prev.thumb : null),
+      readMs: prev ? (prev.readMs || 0) : 0,
+      stored: existing ? existing.stored : (prev ? !!prev.stored : false),
     };
+    // this book is back on the shelf now — drop it from the detached store
+    if (detached[id]) { delete detached[id]; saveDetached(detached); }
     if (existing) {
       // already on the shelf — update in place, DON'T reorder the list
       const i = list.findIndex(b => b.id === id);
@@ -1227,23 +1238,33 @@
   function renderLibrary() {
     const list = loadLib();
     library.classList.toggle('has-books', list.length > 0);
-    // shelf: up to 6
+    // shelf: always MAX_BOOKS cells — real covers first, empty placeholders after
     const shelf = $('libShelf');
     shelf.innerHTML = '';
-    list.slice(0, MAX_BOOKS).forEach(b => {
+    for (let i = 0; i < MAX_BOOKS; i++) {
+      const b = list[i];
       const el = document.createElement('div');
-      el.className = 'thumb';
-      const pct = b.total ? Math.round((b.page + 1) / b.total * 100) : 0;
-      const badge = (b.page > 10) ? (pct + '%') : 'NEW';
-      el.innerHTML =
-        '<div class="cover">' +
-          (b.thumb ? '<img src="' + b.thumb + '" alt="">' : '') +
-          '<span class="badge">' + badge + '</span>' +
-        '</div>' +
-        '<div class="name">' + escapeHtml(b.name) + '</div>';
-      attachCoverGestures(el, b.id);
+      if (b) {
+        el.className = 'thumb';
+        const pct = b.total ? Math.round((b.page + 1) / b.total * 100) : 0;
+        const badge = (b.page > 10) ? (pct + '%') : 'NEW';
+        el.innerHTML =
+          '<div class="cover">' +
+            (b.thumb ? '<img src="' + b.thumb + '" alt="">' : '') +
+            '<span class="badge">' + badge + '</span>' +
+          '</div>' +
+          '<div class="name">' + escapeHtml(b.name) + '</div>';
+        attachCoverGestures(el, b.id);
+      } else {
+        // empty placeholder slot → tap opens the file picker
+        el.className = 'thumb placeholder';
+        el.innerHTML =
+          '<div class="cover slot"><img class="slotIcon" src="back.png" alt=""></div>' +
+          '<div class="name">&nbsp;</div>';
+        el.addEventListener('click', openFilePicker);
+      }
       shelf.appendChild(el);
-    });
+    }
     // continue block = last opened book (falls back to newest); order is untouched
     let cont = null;
     try { const lid = localStorage.getItem('xtclast'); if (lid) cont = list.find(b => b.id === lid); } catch (e) {}
@@ -1352,13 +1373,19 @@
   // Remove a book from the shelf: drop its card, stored file and reading position.
   async function deleteFromShelf(id) {
     let list = loadLib();
+    const entry = list.find(b => b.id === id);
     list = list.filter(b => b.id !== id);
     saveLib(list);
+    // Keep the cover, reading progress and per-book settings, but drop the stored
+    // file bytes. Reopening the same file restores the entry and re-stores it.
+    if (entry) {
+      const det = loadDetached();
+      det[id] = Object.assign({}, entry, { stored: false });
+      saveDetached(det);
+    }
     await idbDelete(id);
-    try { localStorage.removeItem(posKey(id)); } catch (e) {}
-    try { if (localStorage.getItem('xtclast') === id) localStorage.removeItem('xtclast'); } catch (e) {}
     renderLibrary();
-    showLibStatus('Удалено с полки', 1400);
+    showLibStatus('Убрано с полки', 1400);
   }
 
   // Attach tap-to-open + long-press-for-menu to a shelf cover element.
@@ -2064,7 +2091,7 @@
     }
     // main pattern (pattern.png)
     snap('pattern.png',
-      '#gotoDialog,#marginDialog,#scrim,#settingsDialog,.patFill,#libTop .libBrand,#libTop::after,#libContinue::before,#contBar,#bottombar::before,.dlgHead::after',
+      '#gotoDialog,#marginDialog,#scrim,#settingsDialog,.patFill,#libTop .libBrand,#libTop::after,#libContinue::before,#contBar,#bottombar::before,.dlgHead::after,.thumb .cover.slot::before',
       '#libTop::after,#libContinue::before,#bottombar::before,.dlgHead::after',
       4);
     // cover overlay pattern (pattern-cover.png)

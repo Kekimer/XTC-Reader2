@@ -212,12 +212,12 @@
 
   /* Empty placeholder slot: same rounded rectangle as a cover, light border,
      white fill textured with pattern.png at 6%, back.png centred at 60% width */
-  .thumb .cover.slot { border-color: #f0f0f0; background: #fff; }
+  .thumb .cover.slot { border-color: #e0e0e0; background: #fff; }
   .thumb .cover.slot::after { display: none; }        /* no halftone on placeholders */
   .thumb .cover.slot::before {
     content: ''; position: absolute; inset: 0; z-index: 1;
     background: url('pattern.png') repeat; image-rendering: pixelated;
-    opacity: 0.06; pointer-events: none;
+    opacity: 0.12; pointer-events: none;
   }
   .thumb .cover.slot .slotIcon {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
